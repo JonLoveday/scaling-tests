@@ -47,7 +47,7 @@ def make_rect_mask_S():
 
 def wcounts_N():
     """Angular pair counts in mag bins."""
-    wcounts(infile='WAVES-N_0p2_Z22_GalsAmbig_CompletePhotoZ.fits',
+    wcounts(infile='WAVES-N_0p2_Z22_GalsAmbig_IvanSFM_withMasking.parquet',
             mask_file='mask_N.ply', out_pref='wmag_N/', limits=north_limits)
 
     

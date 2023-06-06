@@ -16,10 +16,10 @@
 # Job class (test = 8 hours, test.long = 1 week)
 #$ -jc test.long
 #$ -q smp.q
-##$ -pe openmp 16
+#$ -pe openmp 32
 #$ -l m_mem_free=32G
-cd /research/astro/gama/loveday/Data/4MOST/WAVES/target_cats_2022_nov_25
+cd /research/astro/gama/loveday/Data/4MOST/WAVES/2023May
 python <<EOF
 import waves
-waves.wcounts_S()
+waves.wcounts_N()
 EOF
