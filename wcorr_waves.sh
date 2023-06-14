@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # import required environment variables such as PYTHONPATH
-#$ -v PYTHONPATH=~/Documents/Research/python
+#$ -v PYTHONPATH
 #$ -o /mnt/lustre/scratch/astro/loveday
 # Run job through bash shell
 #$ -S /bin/bash
