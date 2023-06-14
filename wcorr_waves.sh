@@ -18,6 +18,7 @@
 #$ -q smp.q
 #$ -pe openmp 16
 #$ -l m_mem_free=4G
+echo $PYTHONPATH
 cd /research/astro/gama/loveday/Data/4MOST/WAVES/2023May
 python <<EOF
 import waves
