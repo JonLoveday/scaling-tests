@@ -150,3 +150,57 @@ def limber_scale_mult(gamma1=1.7, gamma2=4, r0=5.0, eps=0,
         plt.legend()
         plt.show()
     return dlgt, dlgw
+
+
+def w_lum(cosmo, selfn, gamma=1.7, r0=5.0, eps=0, plotint=0):
+    """Returns w(theta) for lum-dependent xi(r) correlation length and index
+    by evaluating Maddox+1996 eqn 31."""
+    
+    def denfun(r):
+        """Denominator of Maddox+ eqn 31."""
+        z = cosmo.z_at_pdist(r)
+        return r**2 * selfn.sel(z)
+
+    def xifun(r1, r2, theta, m):
+        """Numerator of Maddox+ eqn 31."""
+        z = cosmo.z_at_pdist(0.5*(r1+r2))
+        z1 = cosmo.z_at_pdist(r1)
+        z2 = cosmo.z_at_pdist(r2)
+        a = 1/(1+z)
+        r12 = (r1**2 + r2**2 - 2*r1*r2*np.cos(theta))**0.5/a
+        M = m - cosmo.dist_mod(z) - K(z)
+        return r1**2 * r2**2 * selfn.sel(z1) * selfn.sel(z2) * ximod(r12, z, M)
+
+
+
+    gfac = (math.pi**0.5 * scipy.special.gamma((gamma-1)/2) * r0**gamma /
+            scipy.special.gamma(gamma/2))
+    xmin, xmax = cosmo.xmin, cosmo.xmax
+    if plotint:
+        xp = np.linspace(xmin, xmax, 100)
+        plt.clf()
+        plt.plot(xp, denfun(xp))
+        plt.xlabel('x')
+        plt.ylabel('denfun')
+        plt.show()
+        plt.clf()
+        plt.plot(xp, xifun(xp))
+        plt.xlabel('x')
+        plt.ylabel('xifun')
+        plt.show()
+            
+    res = scipy.integrate.quad(xifun, xmin, xmax, full_output=0,
+                               epsabs=1e3, epsrel=1e-3)
+    if len(res) > 3:
+        pdb.set_trace()
+    num = res[0]
+    res = scipy.integrate.quad(denfun, xmin, xmax, full_output=0,
+                               epsabs=1e3, epsrel=1e-3)
+    if len(res) > 3:
+        pdb.set_trace()
+    den = res[0]**2
+    B = num/den
+    A = gfac * B
+    return A
+
+

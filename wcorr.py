@@ -218,7 +218,7 @@ class Corr1d(object):
             return (r0/r)**gamma
 
         sel = ((self.sep >= fit_range[0]) * (self.sep < fit_range[1]) *
-               np.isfinite(self.est) * (self.err > 0))
+               np.isfinite(self.est) * (self.err > 0) * (self.rr > 10))
         popt, pcov = scipy.optimize.curve_fit(
             power_law, self.sep[sel], self.est[sel], p0=p0,
             sigma=self.err[sel], ftol=ftol, xtol=xtol)

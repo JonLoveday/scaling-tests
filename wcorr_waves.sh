@@ -16,8 +16,8 @@
 # Job class (test = 8 hours, test.long = 1 week)
 #$ -jc test.long
 #$ -q smp.q
-#$ -pe openmp 32
-#$ -l m_mem_free=32G
+#$ -pe openmp 16
+#$ -l m_mem_free=4G
 cd /research/astro/gama/loveday/Data/4MOST/WAVES/2023May
 python <<EOF
 import waves

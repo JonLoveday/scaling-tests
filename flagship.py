@@ -588,25 +588,25 @@ def xir_M_z_plot(nm=6, nz=5, njack=9, fit_range=[0.1, 20], p0=[5, 1.7],
         """Amplitude evolution of xi(r) = A * (1+z)**(-(3 + eps)."""
         return A * (1+z)**(-(3 + eps))
     
-    # def r0_fun(Mz, r0_0, am, Mstar, eps):
-    #     """r0 = r0_0 * (1+z)**(-(3 + eps) + am * L/L*."""
-    #     M, z = Mz[0, :], Mz[1, :]
-    #     return r0_0 * (1+z)**(-(3 + eps)) + am * 10**(0.4*(Mstar - M)) 
+    def r0_fun(Mz, r0_0, am, Mstar, eps):
+        """r0 = r0_0 * (1+z)**(-(3 + eps) + am * L/L*."""
+        M, z = Mz[0, :], Mz[1, :]
+        return r0_0 * (1+z)**(-(3 + eps)) + am * 10**(0.4*(Mstar - M)) 
     
     # def gam_fun(Mz, gam_0, am, Mstar, eps):
     #     """gamma = gam_0 * (1+z)**(-(3 + eps) * am * L/L*."""
     #     M, z = Mz[0, :], Mz[1, :]
     #     return gam_0 * (1+z)**(-(3 + eps)) + am * 10**(0.4*(Mstar - M)) 
     
-    def r0_fun(Mz, r0_0, a1, a2, eps):
-        """r0 = r0_0 * (1+z)**(-(3 + eps) + a1*M + a2*M^2."""
-        M, z = Mz[0, :], Mz[1, :]
-        return r0_0 * (1+z)**(-(3 + eps)) + a1*M + a2*M**2
+    # def r0_fun(Mz, r0_0, a1, a2, eps):
+    #     """r0 = r0_0 * (1+z)**(-(3 + eps) + a1*M + a2*M^2."""
+    #     M, z = Mz[0, :], Mz[1, :]
+    #     return r0_0 * (1+z)**(-(3 + eps)) + a1*M + a2*M**2
     
     def gam_fun(Mz, gam_0, a1, a2, eps):
         """gamma = gam_0 * (1+z)**(-(3 + eps) * a1*M + a2*M**2."""
         M, z = Mz[0, :], Mz[1, :]
-        return gam_0 * (1+z)**(-(3 + eps)) + a1*M + a2*M**2
+        return gam_0 * (1+z)**(-(3 + eps)) + a1 + a2*M
     
     plt.clf()
     fig, axes = plt.subplots(1, nz, sharex=True, sharey=True, num=1)
@@ -650,6 +650,8 @@ def xir_M_z_plot(nm=6, nz=5, njack=9, fit_range=[0.1, 20], p0=[5, 1.7],
                     r0_err[im, iz], gamma_err[im, iz] = pcov[0,0]**0.5, pcov[1,1]**0.5
                     print(info['zlo'], info['zhi'], info['Mlo'], info['Mhi'],
                           info['Ngal'], r0[im, iz], gamma[im, iz])
+                    # if iz == 0 and im == 0:
+                    #     pdb.set_trace()
                 else:
                     print(info['zlo'], info['zhi'], info['Mlo'], info['Mhi'],
                           info['Ngal'])
