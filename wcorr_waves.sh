@@ -18,6 +18,7 @@
 #$ -q smp.q
 #$ -pe openmp 16
 #$ -l m_mem_free=4G
+conda deactivate
 conda activate jon
 echo $PATH
 cd /research/astro/gama/loveday/Data/4MOST/WAVES/2023May
