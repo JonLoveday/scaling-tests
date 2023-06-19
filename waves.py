@@ -7,7 +7,7 @@ import numpy as np
 from numpy.polynomial import Polynomial
 from numpy.random import default_rng
 import pickle
-import pylab as plt
+import matplotlib.pyplot as plt
 import scipy.optimize
 import subprocess
 from astropy import constants as const

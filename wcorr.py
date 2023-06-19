@@ -193,17 +193,19 @@ class Corr1d(object):
                 print(self.sep[i], self.est_corr()[i],
                       self.cov.sig[i], file=fout)
 
-    def fit_w(self, fit_range, p0=[0.05, 1.7], ax=None, color=None):
+    def fit_w(self, fit_range, p0=[0.05, 1.7], ax=None, color=None,
+              ftol=1e-3, xtol=1e-3):
         """Fit a power law to w(theta)."""
 
         def power_law(theta, A, gamma):
             """Power law w(theta) = A theta**(1-gamma)."""
             return A * theta**(1-gamma)
 
-        sel = (self.sep >= fit_range[0]) * (self.sep < fit_range[1]) * np.isfinite(self.est)
+        sel = ((self.sep >= fit_range[0]) * (self.sep < fit_range[1]) *
+               np.isfinite(self.est) * (self.err > 0) * (self.rr > 10))
         popt, pcov = scipy.optimize.curve_fit(
             power_law, self.sep[sel], self.est_corr()[sel], p0=p0,
-            sigma=self.err[sel])
+            sigma=self.err[sel], ftol=ftol, xtol=xtol)
         if ax:
             ax.plot(self.sep[sel], power_law(self.sep[sel], *popt), color=color)
 
@@ -857,6 +859,39 @@ def wplot_scale(cosmo, wcorrs, gamma1=1.7, gamma2=4, r0=5.0, eps=0,
     plt.show()
 
 
+def w_pred(gamma1=1.7, gamma2=4, r0=5.0, eps=0, mbins = np.linspace(15, 20, 6),
+                Mmin=-24, Mmax=-12, theta=np.logspace(-2, 1, 20),
+                alpha=[-0.956, -0.196], Mstar=[-21.135, -0.497],
+                phistar=[3.26e-3, -1.08e-3], kcoeffs=[0.0, -0.39, 1.67],
+                plot_sel=0):
+    """Plot predicted w(theta) from Maddox+1996 eqn 31."""
+
+    # Flagship2 cosomology, converting to h=1 units
+    h = 1
+    Om0 = 0.319
+    cosmo = util.CosmoLookup(h, Om0)
+    
+    plt.clf()
+    for mlo in mbins[:-1]:
+        mhi = mlo + 1
+        selfn = util.SelectionFunction(
+            cosmo, alpha=alpha, Mstar=Mstar, phistar=phistar,
+            mlo=mlo, mhi=mhi, Mmin=Mmin, Mmax=Mmax,
+            nksamp=0, kcoeffs=kcoeffs)
+        w = []
+        for t in theta:
+            wp = limber.w_lum(cosmo, selfn, t, 0.5*(mlo+mhi))
+            w.append(wp)
+            print(mlo, mhi, t, wp)
+                 
+        plt.plot(theta, w, label=f'{mlo:2.0f} < m < {mhi:2.0f}')
+    plt.loglog()
+    plt.legend()
+    plt.xlabel(r'$\theta$ [degrees]')
+    plt.ylabel(r'w($\theta$)')
+    plt.show()
+
+
 def mcmc(cosmo, wcorrs, gamma1=1.7, gamma2=4, r0=5.0, eps=0,
          Mmin=-24, Mmax=-12,
          alpha=[-0.956, -0.196], Mstar=[-21.135, -0.497],
@@ -1089,3 +1124,11 @@ def sel_test():
     cosmo = util.CosmoLookup()
     selfn = util.SelectionFunction(cosmo, plot=True)
     
+def corrfunc_test(nran=1000, tmin=0.01, tmax=10, nbins=20):
+    """Random-random pair count test."""
+
+    bins = np.logspace(np.log10(tmin), np.log10(tmax), nbins + 1)
+    ra = 10*rng.random(nran)
+    dec = 10*rng.random(nran)
+    counts = Corrfunc.mocks.DDtheta_mocks(1, 1, bins, ra, dec)
+    print(counts)

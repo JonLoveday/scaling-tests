@@ -22,6 +22,7 @@ import Corrfunc
 import pymangle
 
 import calc_kcor
+import limber
 import util
 import wcorr
 
@@ -472,6 +473,55 @@ def w_plot(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7], prefix='w_mag/
     wcorr.wplot_scale(cosmo, corr_slices, gamma1=gamma1, gamma2=gamma2,
                       r0=r0, eps=eps, alpha=alpha, Mstar=Mstar,
                       phistar=phistar, kcoeffs=kcoeffs)
+
+def w_plot_pred(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7], prefix='w_mag/',
+           avgcounts=False, gamma1=1.67, gamma2=3.8, r0=6.0, eps=-2.7,
+           Mmin=-24, Mmax=-12, alpha=[-0.956, -0.196], Mstar=[-21.135, -0.497],
+           phistar=[3.26e-3, -1.08e-3], kcoeffs=[0.0, -0.39, 1.67], ic_corr=0):
+    """Plot observed and predicted w(theta) in mag bins."""
+
+    plt.clf()
+    ax = plt.subplot(111)
+    corr_slices = []
+    for imag in range(nmag):
+        corrs = []
+        for ijack in range(njack+1):
+            infile = f'{prefix}RR_J{ijack}.pkl'
+            (info, RR_counts) = pickle.load(open(infile, 'rb'))
+            infile = f'{prefix}GG_J{ijack}_m{imag}.pkl'
+            (info, DD_counts) = pickle.load(open(infile, 'rb'))
+            infile = f'{prefix}GR_J{ijack}_m{imag}.pkl'
+            (info, DR_counts) = pickle.load(open(infile, 'rb'))
+            pdb.set_trace()
+            corrs.append(
+                wcorr.Corr1d(info['Ngal'], info['Nran'],
+                             DD_counts, DR_counts, RR_counts,
+                             mlo=info['mlo'], mhi=info['mhi']))
+        corr = corrs[0]
+        corr.err = np.std(np.array([corrs[i].est for i in range(1, njack+1)]), axis=0)
+        if ic_corr:
+            corr.ic_calc(fit_range, p0, 5)
+        corr_slices.append(corr)
+        color = next(ax._get_lines.prop_cycler)['color']
+        corr.plot(ax, color=color, label=f"m = [{info['mlo']}, {info['mhi']}]")
+
+        selfn = util.SelectionFunction(
+            cosmo, alpha=alpha, Mstar=Mstar, phistar=phistar,
+            mlo=info['mlo'], mhi=info['mhi'], Mmin=Mmin, Mmax=Mmax,
+            nksamp=0, kcoeffs=kcoeffs)
+        w = []
+        for t in corr.sep:
+            wp = limber.w_lum(cosmo, selfn, t, 0.5*(info['mlo']+info['mhi']))
+            w.append(wp)
+        ax.plot(corr.sep, w, color=color)
+        # popt, pcov = corr.fit_w(fit_range, p0, ax, color)
+        # print(popt, pcov)
+    plt.loglog()
+    plt.legend()
+    plt.xlabel(r'$\theta$ / degrees')
+    plt.ylabel(r'$w(\theta)$')
+    plt.show()
+
 
 def mcmc(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7], prefix='w_mag/',
          avgcounts=False, gamma1=1.67, gamma2=3.8, r0=6.0, eps=-2.7,

@@ -34,6 +34,9 @@ class CosmoLookup(object):
     def z_at_dist(self, x):
         return np.interp(x, self._x, self._z)
 
+    def z_at_pdist(self, x):
+        return np.interp(x, self._x/(1 + self._z), self._z)
+
     def dc(self, z):
         return np.interp(z, self._z, self._x)
 
