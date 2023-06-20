@@ -2,6 +2,8 @@
 
 import glob
 import math
+import matplotlib.backends.backend_pdf
+import matplotlib.pyplot as plt
 import multiprocessing as mp
 import numpy as np
 import numpy.ma as ma
@@ -50,6 +52,7 @@ def wcounts(infile='12285.fits', mask_file='mask.ply', out_pref='w_mag/',
     sel = t['rmag'] < magbins[-1]
     t = t[sel]
     ra, dec, mag = t['ra_gal'], t['dec_gal'], t['rmag']
+    mmean = np.zeros(len(magbins)-1)
     sub = np.zeros(len(ra), dtype='int8')
     if plots:
         plt.clf()
@@ -59,7 +62,8 @@ def wcounts(infile='12285.fits', mask_file='mask.ply', out_pref='w_mag/',
     for imag in range(len(magbins) - 1):
         sel = (magbins[imag] <= mag) * (mag < magbins[imag+1])
         sub[sel] = imag
-        print(imag, np.percentile(t['rabs'][sel], (5, 50, 95)))
+        mmean[imag] = np.mean(mag[sel])
+        print(imag, mmean[imag], np.percentile(t['rabs'][sel], (5, 50, 95)))
         if plots:
             ax = axes[imag]
             ax.hist(t['rabs'][sel], bins=np.linspace(-24, -15, 19))
@@ -89,9 +93,9 @@ def wcounts(infile='12285.fits', mask_file='mask.ply', out_pref='w_mag/',
             print(ijack, imag)
             mlo, mhi = magbins[imag], magbins[imag+1]
             gcoords = galcat.sample(ijack, sub=imag)
-            info = {'Jack': ijack, 'mlo': mlo, 'mhi': mhi,
+            info = {'Jack': ijack, 'mlo': mlo, 'mhi': mhi, 'mmean': mmean[imag],
                     'Ngal': len(gcoords[0]), 'Nran': len(rcoords[0]),
-                                'bins': bins, 'tcen': tcen}
+                    'bins': bins, 'tcen': tcen}
             outfile = f'{out_pref}GG_J{ijack}_m{imag}.pkl'
             pool.apply_async(wcorr.wcounts,
                              args=(*gcoords, bins, info, outfile))
@@ -477,10 +481,15 @@ def w_plot(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7], prefix='w_mag/
 def w_plot_pred(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7], prefix='w_mag/',
            avgcounts=False, gamma1=1.67, gamma2=3.8, r0=6.0, eps=-2.7,
            Mmin=-24, Mmax=-12, alpha=[-0.956, -0.196], Mstar=[-21.135, -0.497],
-           phistar=[3.26e-3, -1.08e-3], kcoeffs=[0.0, -0.39, 1.67], ic_corr=0):
+           phistar=[3.26e-3, -1.08e-3], kcoeffs=[0.0, -0.39, 1.67], ic_corr=0,
+                pltfile='intergrand_plots.pdf'):
     """Plot observed and predicted w(theta) in mag bins."""
 
-    plt.clf()
+    if pltfile:
+        pdf = matplotlib.backends.backend_pdf.PdfPages(pltfilename)
+    else:
+        pdf = None
+    fig = plt.figure()
     ax = plt.subplot(111)
     corr_slices = []
     for imag in range(nmag):
@@ -492,7 +501,6 @@ def w_plot_pred(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7], prefix='w
             (info, DD_counts) = pickle.load(open(infile, 'rb'))
             infile = f'{prefix}GR_J{ijack}_m{imag}.pkl'
             (info, DR_counts) = pickle.load(open(infile, 'rb'))
-            pdb.set_trace()
             corrs.append(
                 wcorr.Corr1d(info['Ngal'], info['Nran'],
                              DD_counts, DR_counts, RR_counts,
@@ -511,16 +519,21 @@ def w_plot_pred(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7], prefix='w
             nksamp=0, kcoeffs=kcoeffs)
         w = []
         for t in corr.sep:
-            wp = limber.w_lum(cosmo, selfn, t, 0.5*(info['mlo']+info['mhi']))
+            wp = limber.w_lum(cosmo, selfn, t, 0.5*(info['mlo']+info['mhi']),
+                              pdf=pdf)
             w.append(wp)
         ax.plot(corr.sep, w, color=color)
         # popt, pcov = corr.fit_w(fit_range, p0, ax, color)
         # print(popt, pcov)
+
+    if pdf:
+        pdf.close()
     plt.loglog()
     plt.legend()
     plt.xlabel(r'$\theta$ / degrees')
     plt.ylabel(r'$w(\theta)$')
     plt.show()
+    plt.close(fig)
 
 
 def mcmc(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7], prefix='w_mag/',

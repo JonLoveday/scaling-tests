@@ -2,6 +2,7 @@
 
 import glob
 import math
+import matplotlib.pyplot as plt
 import mpmath
 import numpy as np
 import pdb
@@ -153,7 +154,7 @@ def limber_scale_mult(gamma1=1.7, gamma2=4, r0=5.0, eps=0,
 
 
 def w_lum(cosmo, selfn, theta, m, gamma=1.7, r0=5.0, eps=0, plotint=0,
-          rmin=1, rmax=3000):
+          rmin=1, rmax=2000, pdf=None):
     """Returns w(theta) for lum-dependent xi(r) correlation length and index
     by evaluating Maddox+1996 eqn 31."""
     
@@ -175,12 +176,34 @@ def w_lum(cosmo, selfn, theta, m, gamma=1.7, r0=5.0, eps=0, plotint=0,
         z1 = cosmo.z_at_pdist(r1)
         z2 = cosmo.z_at_pdist(r2)
         a = 1/(1+z)
-        r12 = (r1**2 + r2**2 - 2*r1*r2*np.cos(np.deg2rad(theta)))**0.5/a
+        r12 = (r1**2 + r2**2 - 2*r1*r2*np.cos(np.deg2rad(theta)))**0.5
         M = m - cosmo.distmod(z) - K(z)
-        return r1**2 * r2**2 * selfn.sel(z1) * selfn.sel(z2) * ximod(r12, z, M)
+        return r1**2 * r2**2 * selfn.sel(z1) * selfn.sel(z2) * ximod(r12/a, z, M)
 
+    if pdf:
+        fig = plt.figure()
+        r = np.linspace(rmin, rmax, 100)
+        plt.plot(r, denfun(r))
+        plt.xlabel('r [pMpc]')
+        plt.ylabel('denfun')
+        plt.title(f'mag = {m:4.2f}, theta = {theta:4.3f}')
+        pdf.savefig(plt.gcf().number)
+        plt.close(fig)
+    
+        fig = plt.figure()
+        r1, r2 = np.meshgrid(r, r)
+        plt.imshow(xifun(r1, r2), extent=(rmin, rmax, rmax, rmin))
+        plt.xlabel('r2 [pMpc]')
+        plt.ylabel('r1 [pMpc]')
+        plt.title(f'mag = {m:4.2f}, theta = {theta:4.3f}')
+        pdf.savefig(plt.gcf().number)
+        plt.close(fig)
+
+
+    
     denom = scipy.integrate.quad(denfun, rmin, rmax, epsabs=1e5, epsrel=0.01)[0]**2
-    num = scipy.integrate.dblquad(xifun, rmin, rmax, lambda x: max(rmin, x-100),
-                                  lambda x: min(rmax, x+100), epsabs=1e5, epsrel=0.01)[0]
+    # num = scipy.integrate.dblquad(xifun, rmin, rmax, lambda x: max(rmin, x-100),
+    #                               lambda x: min(rmax, x+100), epsabs=1e5, epsrel=0.01)[0]
+    num = scipy.integrate.dblquad(xifun, rmin, rmax, rmin, rmax, epsabs=1e5, epsrel=0.01)[0]
 
     return num/denom

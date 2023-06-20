@@ -1128,7 +1128,7 @@ def corrfunc_test(nran=1000, tmin=0.01, tmax=10, nbins=20):
     """Random-random pair count test."""
 
     bins = np.logspace(np.log10(tmin), np.log10(tmax), nbins + 1)
-    ra = 10*rng.random(nran)
-    dec = 10*rng.random(nran)
+    ra = 20*rng.random(nran)
+    dec = 20*rng.random(nran)
     counts = Corrfunc.mocks.DDtheta_mocks(1, 1, bins, ra, dec)
     print(counts)
