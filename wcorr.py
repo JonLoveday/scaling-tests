@@ -1132,3 +1132,6 @@ def corrfunc_test(nran=1000, tmin=0.01, tmax=10, nbins=20):
     dec = 20*rng.random(nran)
     counts = Corrfunc.mocks.DDtheta_mocks(1, 1, bins, ra, dec)
     print(counts)
+
+    counts = Corrfunc.mocks.DDtheta_mocks(1, 1, bins, ra.astype('float32'), dec.astype('float32'))
+    print(counts)

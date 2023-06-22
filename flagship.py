@@ -36,7 +36,7 @@ h = 1
 Om0 = 0.319
 cosmo = util.CosmoLookup(h, Om0)
 
-def wcounts(infile='12285.fits', mask_file='mask.ply', out_pref='w_mag/',
+def wcounts(infile='14516.fits', mask_file='mask.ply', out_pref='w_mag/',
             limits=(180, 200, 0, 20), nran=100000, nra=4, ndec=4,
             tmin=0.01, tmax=10, nbins=20,
             magbins=np.linspace(15, 20, 6), plots=1):
@@ -49,9 +49,9 @@ def wcounts(infile='12285.fits', mask_file='mask.ply', out_pref='w_mag/',
     print('Using', ncpu, 'CPUs')
     
     t = Table.read(infile)
-    sel = t['rmag'] < magbins[-1]
+    sel = t['hmag'] < magbins[-1]
     t = t[sel]
-    ra, dec, mag = t['ra_gal'], t['dec_gal'], t['rmag']
+    ra, dec, mag = t['ra_gal'], t['dec_gal'], t['hmag']
     mmean = np.zeros(len(magbins)-1)
     sub = np.zeros(len(ra), dtype='int8')
     if plots:
@@ -78,7 +78,7 @@ def wcounts(infile='12285.fits', mask_file='mask.ply', out_pref='w_mag/',
 
     mask = pymangle.Mangle(mask_file)
     ra, dec = mask.genrand_range(nran, *limits)
-    rancat = wcorr.Cat(ra.astype('float32'), dec.astype('float32'))
+    rancat = wcorr.Cat(ra.astype('float64'), dec.astype('float64'))
     rancat.assign_jk(limits, nra, ndec)
 
     print(galcat.nobj, rancat.nobj, 'galaxies and randoms')
@@ -86,6 +86,9 @@ def wcounts(infile='12285.fits', mask_file='mask.ply', out_pref='w_mag/',
     njack = nra*ndec
     for ijack in range(njack+1):
         rcoords = rancat.sample(ijack)
+        plt.clf()
+        plt.scatter(rcoords[0], rcoords[1], s=0.1)
+        plt.show()
         info = {'Jack': ijack, 'Nran': len(rcoords[0]), 'bins': bins, 'tcen': tcen}
         outfile = f'{out_pref}RR_J{ijack}.pkl'
         pool.apply_async(wcorr.wcounts, args=(*rcoords, bins, info, outfile))
@@ -106,152 +109,7 @@ def wcounts(infile='12285.fits', mask_file='mask.ply', out_pref='w_mag/',
     pool.join()
 
 
-# def w(infile='12244.fits', mask_file='mask.ply', out_file='w12244.pkl',
-#       rlim=19.8, limits=(180, 200, 0, 20),
-#       ranfac=1, nra=4, ndec=4, tmin=0.01, tmax=1, nbins=20):
-#     """w(theta) for Euclid flagship."""
-#     bins = np.logspace(np.log10(tmin), np.log10(tmax), nbins + 1)
-#     tcen = 10**(0.5*np.diff(np.log10(bins)) + np.log10(bins[:-1]))
-
-#     t = Table.read(infile)
-#     sel = t['rmag'] < rlim
-#     ra, dec, mag = t['ra_gal'][sel], t['dec_gal'][sel], t['rmag'][sel]
-#     galcat = wcorr.Cat(ra, dec)
-#     galcat.assign_jk(limits, nra, ndec)
-
-#     nran = int(ranfac*galcat.nobj)
-#     mask = pymangle.Mangle(mask_file)
-#     ra, dec = mask.genrand_range(nran, *limits)
-#     rancat = wcorr.Cat(ra.astype('float32'), dec.astype('float32'))
-#     rancat.assign_jk(limits, nra, ndec)
-
-#     print(galcat.nobj, rancat.nobj, 'galaxies and randoms')
-
-#     w, w_err = w_jack(galcat, rancat, bins)
-#     pickle.dump((tcen, w, w_err), open(out_file, 'wb'))
-#     plt.errorbar(tcen, w, w_err)
-#     plt.loglog()
-#     plt.xlabel(r'$\theta$ [degrees]')
-#     plt.ylabel(r'w($\theta$)')
-#     plt.show()
-
-
-# def w_mag(infile='12285.fits', mask_file='mask.ply',
-#           out_file='w12285_mag.pkl',
-#           magbins=np.linspace(15, 20, 6), limits=(180, 200, 0, 20),
-#           nran=1000000, nra=4, ndec=4, tmin=0.01, tmax=10, nbins=20,
-#           nthreads=2, plots=0):
-#     """w(theta) for Euclid flagship in mag bins."""
-#     bins = np.logspace(np.log10(tmin), np.log10(tmax), nbins + 1)
-#     tcen = 10**(0.5*np.diff(np.log10(bins)) + np.log10(bins[:-1]))
-#     lbl = [f'm = [{magbins[i]}, {magbins[i+1]}]' for i in range(len(magbins)-1)]
-
-#     t = Table.read(infile)
-#     sel = t['rmag'] < magbins[-1]
-#     t = t[sel]
-#     ra, dec, mag = t['ra_gal'], t['dec_gal'], t['rmag']
-#     sub = np.zeros(len(ra), dtype='int8')
-#     if plots:
-#         plt.clf()
-#         fig, axes = plt.subplots(5, 1, sharex=True, num=1)
-#         fig.set_size_inches(5, 6)
-#         fig.subplots_adjust(hspace=0, wspace=0)
-#     for imag in range(len(magbins) - 1):
-#         sel = (magbins[imag] <= mag) * (mag < magbins[imag+1])
-#         sub[sel] = imag
-#         print(imag, np.percentile(t['rabs'][sel], (5, 50, 95)))
-#         if plots:
-#             ax = axes[imag]
-#             ax.hist(t['rabs'][sel], bins=np.linspace(-24, -15, 19))
-#             ax.text(0.7, 0.8, rf'm = {magbins[imag]:3.1f}-{magbins[imag+1]:3.1f}',
-#                     transform=ax.transAxes)
-
-#     if plots:
-#         plt.xlabel(r'$M_r$')
-#         plt.show()
-#     galcat = wcorr.Cat(ra, dec, sub=sub, nthreads=nthreads)
-#     galcat.assign_jk(limits, nra, ndec)
-
-#     mask = pymangle.Mangle(mask_file)
-#     ra, dec = mask.genrand_range(nran, *limits)
-#     rancat = wcorr.Cat(ra.astype('float32'), dec.astype('float32'))
-#     rancat.assign_jk(limits, nra, ndec)
-
-#     print(galcat.nobj, rancat.nobj, 'galaxies and randoms')
-
-#     w, w_err, wj, DD_counts, DR_counts, RR_counts = wcorr.w_jack_sub(
-#         galcat, rancat, bins)
-#     pickle.dump((tcen, w, w_err, wj, DD_counts, DR_counts, RR_counts, lbl), open(out_file, 'wb'))
-
-
-# def xi_z(infile='12285.fits', mask_file='mask.ply',
-#          out_file='xi_z_12285.pkl', Mr_lims=[-22, -20],
-#          zbins=np.linspace(0, 1, 6), limits=(180, 200, 0, 20),
-#          ranfac=1, nra=3, ndec=3, rbins=np.logspace(-1, 2, 16),
-#          randist='shuffle', nthreads=2):
-#     """xi(r) for Euclid flagship in redshift bins."""
-#     # rcen = 10**(0.5*np.diff(np.log10(rbins)) + np.log10(rbins[:-1]))
-#     # print(rcen)
-
-#     t = Table.read(infile)
-
-#     # Select L* galaxies, well-sampled in all z slices
-#     sel = (Mr_lims[0] < t['rabs']) *(t['rabs'] < Mr_lims[1])
-#     t = t[sel]
-#     ra, dec, mag = t['ra_gal'], t['dec_gal'], t['rmag']
-#     z = t['true_redshift_gal']
-#     r = cosmo.dc(z)
-#     xi_dict_list = []
-
-#     plt.clf()
-#     fig, axes = plt.subplots(5, 1, num=1)
-#     fig.set_size_inches(4, 8)
-#     fig.subplots_adjust(hspace=0.1, wspace=0.1)
-#     for iz in range(len(zbins) - 1):
-#         dmin, dmax = cosmo.dc(zbins[iz]), cosmo.dc(zbins[iz+1])
-#         dbins = np.linspace(dmin, dmax, 21)
-#         sel = (zbins[iz] <= z) * (z < zbins[iz+1])
-#         galcat = wcorr.Cat(ra[sel], dec[sel], r=r[sel], nthreads=nthreads)
-#         galcat.assign_jk(limits, nra, ndec)
-#         galcat.gen_cart()
-#         ngal = len(ra[sel])
-
-#         # Quadratic fit to N(d), constrained to pass through origin
-#         dhist, edges = np.histogram(galcat.r, dbins)
-#         dcen = edges[:-1] + 0.5*np.diff(edges)
-#         p = Polynomial.fit(dcen, dhist, deg=[1,2], w=dhist,
-#                            domain=[0, dcen[-1]], window=[0, dcen[-1]])
-        
-#         nran = int(ranfac*ngal)
-#         mask = pymangle.Mangle(mask_file)
-#         rar, decr = mask.genrand_range(nran, *limits)
-#         if randist == 'shuffle':
-#             rr = rng.choice(r[sel], nran, replace=True)
-#         if randist == 'poly':
-#             rr = util.ran_fun(p, dmin, dmax, nran)
-#         rancat = wcorr.Cat(rar.astype('float32'), decr.astype('float32'), r=rr)
-#         rancat.assign_jk(limits, nra, ndec)
-#         rancat.gen_cart()
-
-#         print(iz, galcat.nobj, rancat.nobj, 'galaxies and randoms')
-#         ax = axes[iz]
-#         dfit = p(dcen)
-#         ax.step(dcen, dhist)
-#         dhist, _ = np.histogram(rancat.r, dbins)
-#         ax.step(dcen, dhist)
-#         ax.plot(dcen, dfit)
-#         ax.text(0.05, 0.8, rf'z = {zbins[iz]:3.1f}-{zbins[iz+1]:3.1f}',
-#             transform=ax.transAxes)
-        
-#         xi_dict = wcorr.xir_jack(galcat, rancat, rbins)
-#         lbl = f'z = {zbins[iz]:3.1f}-{zbins[iz+1]:3.1f}'
-#         xi_dict.update({'lbl': lbl})
-#         xi_dict_list.append(xi_dict)
-#     pickle.dump(xi_dict_list, open(out_file, 'wb'))
-#     plt.show()
-
-
-def xir_counts(infile='12285.fits', mask_file='mask.ply',
+def xir_counts(infile='14516.fits', mask_file='mask.ply',
          Mbins=np.linspace(-24, -12, 7),
          zbins=np.linspace(0, 1, 6), limits=(180, 200, 0, 20),
          ranfac=1, nra=3, ndec=3, rbins=np.logspace(-1, 2, 16),
@@ -267,7 +125,7 @@ def xir_counts(infile='12285.fits', mask_file='mask.ply',
         print('Using', ncpu, 'CPUs')
     
     t = Table.read(infile)
-    ra, dec, rabs = t['ra_gal'], t['dec_gal'], t['rabs']
+    ra, dec, rabs = t['ra_gal'], t['dec_gal'], t['habs']
     redshift = t['true_redshift_gal']
     r = cosmo.dc(redshift)
 
@@ -288,7 +146,7 @@ def xir_counts(infile='12285.fits', mask_file='mask.ply',
                 mask = pymangle.Mangle(mask_file)
                 rar, decr = mask.genrand_range(nran, *limits)
                 rr = rng.choice(r[sel], nran, replace=True)
-                rancat = wcorr.Cat(rar.astype('float32'), decr.astype('float32'), r=rr)
+                rancat = wcorr.Cat(rar.astype('float64'), decr.astype('float64'), r=rr)
                 rancat.assign_jk(limits, nra, ndec)
                 rancat.gen_cart()
 
@@ -319,96 +177,7 @@ def xir_counts(infile='12285.fits', mask_file='mask.ply',
         pool.join()
 
 
-# def xi_M_z(infile='12285.fits', mask_file='mask.ply',
-#            out_file='xi_M_z_12285.pkl', Mr_bins=np.linspace(-24, -16, 5),
-#            zbins=np.linspace(0, 1, 6), limits=(180, 200, 0, 20),
-#            ranfac=1, nra=3, ndec=3, rbins=np.logspace(-1, 2, 16),
-#            randist='selfn', sel_file='sel_12285.pkl', nthreads=2):
-#     """xi(r) in abs mag and redshift bins."""
-
-#     t = Table.read(infile)
-#     if randist == 'selfn':
-#         sel_dict = pickle.load(open(sel_file, 'rb'))
-
-#     # Iterate over abs mag bins
-#     zfbins=np.linspace(0, 1, 41)
-#     xi_dict_list = []
-#     mask = pymangle.Mangle(mask_file)
-
-#     plt.clf()
-#     fig, axes = plt.subplots(4, 1, num=1)
-#     fig.set_size_inches(5, 6)
-#     fig.subplots_adjust(hspace=0, wspace=0)
-#     for im in range(len(Mr_bins) - 1):
-#         ax = axes[im]
-#         Mmin, Mmax = Mr_bins[im], Mr_bins[im+1]
-#         sel = ((Mmin < t['rabs']) * (t['rabs'] < Mmax) *
-#                (t['true_redshift_gal'] < zbins[-1]))
-#         tm = t[sel]
-#         z = tm['true_redshift_gal']
-#         ngal = len(z)
-#         nran = int(ranfac*ngal)
-#         rar, decr = mask.genrand_range(nran, *limits)
-
-#         zhist, edges = np.histogram(z, zfbins)
-#         zcen = edges[:-1] + 0.5*np.diff(edges)
-#         ax.stairs(zhist, zfbins)
-
-#         if randist == 'blake':
-#             p0 = [ngal, 1, 2, 10]
-#             bounds = [[0.1*ngal, 0.1, 1, 1], [10*ngal, 2, 10, 100]]
-#             try:
-#                 popt, pcov = scipy.optimize.curve_fit(
-#                     Nofz, zcen, zhist, p0=p0, sigma=zhist**-0.5, bounds=bounds)
-#             except RuntimeError:
-#                 print('Error in fit')
-#                 print(popt)
-#             zfit = Nofz(zcen, *popt)
-#             ax.plot(zcen, zfit)
-#             zr = util.ran_fun(Nofz, zbins[0], zbins[-1], nran, args=popt)
-#         if randist == 'selfn':
-#             key = f'{Mmin:4.1f}-{Mmax:4.1f}'
-#             selfn = sel_dict[key]
-#             zr = util.ran_fun(selfn.Nz, zbins[0], zbins[-1], nran)
-#         zrhist, edges = np.histogram(zr, zfbins)
-#         ax.stairs(zrhist, zfbins)
-#         # ax.semilogy()
-#         ax.text(0.05, 0.8, rf'$M_r = [{Mmin:3.1f}, {Mmax:3.1f}]$',
-#             transform=ax.transAxes)
-        
-#         # Redshift bins
-#         for iz in range(len(zbins) - 1):
-#             zmin, zmax = zbins[iz], zbins[iz+1]
-#             sel = (zmin <= z) * (z < zmax)
-#             ngalz = len(z[sel])
-#             nranz = int(ranfac*ngalz)
-#             galcat = wcorr.Cat(tm['ra_gal'][sel], tm['dec_gal'][sel],
-#                          r=cosmo.dc(z[sel]), nthreads=nthreads)
-#             galcat.assign_jk(limits, nra, ndec)
-#             galcat.gen_cart()
-
-#             if randist == 'shuffle':
-#                 zrz = rng.choice(z[sel], nranz, replace=True)
-#             else:
-#                 zrz = zr[sel]
-#             rancat = wcorr.Cat(rar[sel], decr[sel], zrz)
-#             rancat.assign_jk(limits, nra, ndec)
-#             rancat.gen_cart()
-
-#             # print(im, iz, galcat.nobj, rancat.nobj, 'galaxies and randoms')
-        
-#             xi_dict = xir_jack(galcat, rancat, rbins)
-#             # lbl = f'z = {zbins[iz]:3.1f}-{zbins[iz+1]:3.1f}'
-#             xi_dict.update(
-#                 {'Mmin': Mmin, 'Mmax': Mmax, 'Mmean': np.mean(tm['rabs'][sel]),
-#                  'zmin': zmin, 'zmax': zmax, 'zmean': np.mean(z[sel])})
-#             xi_dict_list.append(xi_dict)
-#     pickle.dump(xi_dict_list, open(out_file, 'wb'))
-#     plt.show()
-
-
-
-def hists(infile='12244.fits', Mr_lims=[-24, -15],
+def hists(infile='14516.fits', M_lims=[-24, -15],
           zbins=np.linspace(0, 1, 6)):
     """Abs mag histograms in redshift bins."""
 
@@ -420,21 +189,15 @@ def hists(infile='12244.fits', Mr_lims=[-24, -15],
     fig.subplots_adjust(hspace=0, wspace=0)
     for iz in range(len(zbins) - 1):
         sel = (zbins[iz] <= z) * (z < zbins[iz+1])
-        M_r = t['abs_mag_r01'][sel]
+        M = t['habs'][sel]
         print(iz, np.percentile(M_r, (5, 50, 95)))
         ax = axes[iz]
         ax.semilogy()
-        ax.hist(M_r, bins=np.linspace(*Mr_lims, 37))
+        ax.hist(M, bins=np.linspace(*Mr_lims, 37))
         ax.text(0.05, 0.8, rf'z = {zbins[iz]:3.1f}-{zbins[iz+1]:3.1f}',
             transform=ax.transAxes)
-    plt.xlabel(r'$M_r$')
+    plt.xlabel(r'$M_h$')
     plt.show()
-
-
-# def wplot():
-#     """Plot w(theta) results for Euclid mag slices."""
-#     wcorr.wplot_samp(infile='w12244_mag.pkl', tfitlo=0.01, tfithi=0.5,
-#                p0=[1e-2, 1.7], t2lo=0.5, t2hi=5, tmax_ic=1.0, ic_corr='pl', niter=3)
 
 
 def w_plot(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7], prefix='w_mag/',
@@ -565,20 +328,6 @@ def mcmc(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7], prefix='w_mag/',
     wcorr.mcmc(cosmo, corr_slices, gamma1=gamma1, gamma2=gamma2,
                r0=r0, eps=eps, alpha=alpha, Mstar=Mstar,
                phistar=phistar, kcoeffs=kcoeffs, nstep=nstep)
-
-# def wplot_scale():
-#     """Plot w(theta) results for Euclid mag slices with Limber scaling."""
-#     wcorr.wplot_scale(cosmo, infile='w12244_mag.pkl', gamma1=1.65, gamma2=2.3,
-#                       r0=6.08, eps=-2.7, maglims=np.linspace(15, 20, 6),
-#                       alpha=[-0.956, -0.196], Mstar=[-21.135, -0.497],
-#                 phistar=[3.26e-3, -1.08e-3], kcoeffs=[0.0, -0.39, 1.67])
-
-
-# def xi_plot():
-#     """Plot xi(r) results for Euclid redshift slices."""
-#     wcorr.xi_plot_samp(infile='xi_z_12244_shuffle.pkl', rfitlo=0.1, rfithi=10,
-#                        p0=[5, 1.7], ic_corr='pl', rmax_ic=10, niter=1)
-
 
 def xir_z_plot(nz=5, njack=8, fit_range=[0.1, 20], p0=[5, 1.7], prefix='xir_z/',
              avgcounts=False):
@@ -781,7 +530,7 @@ def xir_M_z_plot(nm=6, nz=5, njack=9, fit_range=[0.1, 20], p0=[5, 1.7],
     plt.show()
 
 
-def kcorr(infile='12285.fits', Mr_bins=np.linspace(-24, -16, 5),
+def kcorr(infile='14516.fits', M_bins=np.linspace(-24, -16, 5),
           nplot=100000):
     """Empirically determine flagship K-corrections using k = m - M - DM."""
 
@@ -789,10 +538,9 @@ def kcorr(infile='12285.fits', Mr_bins=np.linspace(-24, -16, 5),
     sel = t['true_redshift_gal'] < 1
     t = t[sel]
 
-    u, g, r, M, z = t['umag'], t['gmag'], t['rmag'], t['rabs'], t['true_redshift_gal']
-    # r, M, z = t['rmag'], t['abs_mag_r01'], t['true_redshift_gal']
+    m, M, z = t['hmag'], t['habs'], t['true_redshift_gal']
     dm = cosmo.distmod(z)
-    k = r - M - dm
+    k = m - M - dm
     # kc = calc_kcor.calc_kcor('r', z, 'g - r', g-r)
     sel = np.isfinite(k)
     z, k, M = z[sel], k[sel], M[sel]
@@ -813,13 +561,13 @@ def kcorr(infile='12285.fits', Mr_bins=np.linspace(-24, -16, 5),
     kfit = p(zp)
     plt.plot(zp, kfit, label='All')
     print(p.coef)
-    for im in range(len(Mr_bins)-1):
-        sel = (Mr_bins[im] <= M) * (M < Mr_bins[im+1])
+    for im in range(len(M_bins)-1):
+        sel = (M_bins[im] <= M) * (M < M_bins[im+1])
         p = Polynomial.fit(z[sel], k[sel], deg=deg, domain=[0, 1], window=[0, 1])
         kfit = p(zp)
-        plt.plot(zp, kfit, label=f'[{Mr_bins[im]},  {Mr_bins[im+1]}]')
+        plt.plot(zp, kfit, label=f'[{M_bins[im]},  {M_bins[im+1]}]')
         print(p.coef)
-    plt.colorbar(label=r'$M_r$')
+    plt.colorbar(label=r'$M_h$')
     plt.legend()
     plt.ylabel('Kcorr')
     # plt.subplot(212)
@@ -831,11 +579,11 @@ def kcorr(infile='12285.fits', Mr_bins=np.linspace(-24, -16, 5),
     plt.show()
 
 
-def lf(infile='12285.fits', zbins=np.linspace(0.0, 1.0, 6),
+def lf(infile='14516.fits', zbins=np.linspace(0.0, 1.0, 6),
        magbins=np.linspace(-24, -19, 21), p0=[-1.45, -21, 1e-3],
        bounds=([-1.451, -23, 1e-4], [-1.449, -19, 1e-2]), zfit=0):
-    """Flagship LF in redshift slices, assuming it's volume-limited 
-    to M_r ~ -20 at z = 1.0."""
+    """Flagship h-band LF in redshift slices, assuming it's volume-limited 
+    to M_h ~ -20 at z = 1.0."""
 
     def Schechter(M, alpha, Mstar, phistar):
         L = 10**(0.4*(Mstar-M))
@@ -857,7 +605,7 @@ def lf(infile='12285.fits', zbins=np.linspace(0.0, 1.0, 6),
         sel = (zlo <= t['true_redshift_gal']) * (t['true_redshift_gal'] < zhi)
         zmean[iz] = np.mean(t['true_redshift_gal'][sel])
 #        zmean[iz] = np.log10(1 + zmean[iz])
-        hist, edges = np.histogram(t['rabs'][sel], magbins)
+        hist, edges = np.histogram(t['habs'][sel], magbins)
         phi = hist/vol
         phi_err = phi/hist**0.5
         use = phi > 0
@@ -873,8 +621,8 @@ def lf(infile='12285.fits', zbins=np.linspace(0.0, 1.0, 6),
         plt.plot(Mcen, Schechter(Mcen, *popt), color=color)
 #        print(phi, phi_err)
     plt.semilogy(base=10)
-    plt.xlabel(r'$M_r$')
-    plt.ylabel(r'$\Phi(M_r)$')
+    plt.xlabel(r'$M_h$')
+    plt.ylabel(r'$\Phi(M_h)$')
     plt.legend()
     plt.show()
 
@@ -920,19 +668,19 @@ def lf(infile='12285.fits', zbins=np.linspace(0.0, 1.0, 6),
     plt.show()
 
 
-def gen_selfn(infile='12285.fits', outfile='sel_12285.pkl',
-              Mr_bins=np.linspace(-24, -16, 5),
+def gen_selfn(infile='14516.fits', outfile='sel_14516.pkl',
+              M_bins=np.linspace(-24, -16, 5),
               zbins=np.linspace(0, 1, 6), nksamp=100):
     """Generate selection functions in luminosity bins."""
 
-    # K-correction coefficients for mag bins defined by Mr_bins
+    # K-correction coefficients for mag bins defined by M_bins
     kcoeffs = [[0, 1.70, 0.64], [0, 0.77, 0.94], [0, 0.65, 0.08], [0, -0.26, 0.53]]
 
     t = Table.read(infile)
     sel = t['true_redshift_gal'] < 1
     t = t[sel]
 
-    m, M, z = t['rmag'], t['rabs'], t['true_redshift_gal']
+    m, M, z = t['hmag'], t['habs'], t['true_redshift_gal']
     dm = cosmo.distmod(z)
     k = m - M - dm
     ktable = Table([M, z, k], names=('M', 'z', 'k'))
@@ -966,7 +714,7 @@ def gen_selfn(infile='12285.fits', outfile='sel_12285.pkl',
     plt.show()
 
 
-def selfn_plot(infile='sel_12285.pkl'):
+def selfn_plot(infile='sel_14516.pkl'):
     """plot selection functions in luminosity bins."""
 
     sel_dict = pickle.load(open(infile, 'rb'))
