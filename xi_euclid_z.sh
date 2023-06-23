@@ -1,9 +1,7 @@
 #!/bin/bash
 # import required environment variables such as PYTHONPATH
-#$ -v PYTHONPATH=~/Documents/Research/python
+#$ -v PYTHONPATH
 #$ -o /mnt/lustre/scratch/astro/loveday
-# Your job name
-##$ -N $@
 # Run job through bash shell
 #$ -S /bin/bash
 # set mail notification on exit, abort or suspension
@@ -14,16 +12,15 @@
 #$ -cwd
 # Combine error and output files
 #$ -j y
+# catch kill and suspend signals
+#$ -notify
 # Job class (test.long = 1 week)
 #$ -jc test.long
 # specify the queue and number of slots
-# catch kill and suspend signals
-#$ -notify
 #
 #$ -q smp.q
-##$ -q serial.q parallel.q smp.q
-#$ -pe openmp 32
-#$ -l h_vmem=64G
+#$ -pe openmp 16
+#$ -l m_mem_free=2G
 module load GSL
 cd /research/astro/gama/loveday/Data/euclid
 python <<EOF

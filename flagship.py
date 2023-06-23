@@ -110,7 +110,7 @@ def wcounts(infile='14516.fits', mask_file='mask.ply', out_pref='w_mag/',
 
 
 def xir_counts(infile='14516.fits', mask_file='mask.ply',
-         Mbins=np.linspace(-24, -12, 7),
+         Mbins=np.linspace(-26, -12, 8),
          zbins=np.linspace(0, 1, 6), limits=(180, 200, 0, 20),
          ranfac=1, nra=3, ndec=3, rbins=np.logspace(-1, 2, 16),
          randist='shuffle', out_pref='xir_z/', multi=True):
@@ -177,7 +177,7 @@ def xir_counts(infile='14516.fits', mask_file='mask.ply',
         pool.join()
 
 
-def hists(infile='14516.fits', M_lims=[-24, -15],
+def hists(infile='14516.fits', Mbins=np.linspace(-26, -16, 41),
           zbins=np.linspace(0, 1, 6)):
     """Abs mag histograms in redshift bins."""
 
@@ -190,10 +190,10 @@ def hists(infile='14516.fits', M_lims=[-24, -15],
     for iz in range(len(zbins) - 1):
         sel = (zbins[iz] <= z) * (z < zbins[iz+1])
         M = t['habs'][sel]
-        print(iz, np.percentile(M_r, (5, 50, 95)))
+        print(iz, np.percentile(M, (5, 50, 95)))
         ax = axes[iz]
         ax.semilogy()
-        ax.hist(M, bins=np.linspace(*Mr_lims, 37))
+        ax.hist(M, Mbins)
         ax.text(0.05, 0.8, rf'z = {zbins[iz]:3.1f}-{zbins[iz+1]:3.1f}',
             transform=ax.transAxes)
     plt.xlabel(r'$M_h$')
@@ -580,10 +580,10 @@ def kcorr(infile='14516.fits', M_bins=np.linspace(-24, -16, 5),
 
 
 def lf(infile='14516.fits', zbins=np.linspace(0.0, 1.0, 6),
-       magbins=np.linspace(-24, -19, 21), p0=[-1.45, -21, 1e-3],
+       magbins=np.linspace(-26, -18, 33), p0=[-1.45, -21, 1e-3],
        bounds=([-1.451, -23, 1e-4], [-1.449, -19, 1e-2]), zfit=0):
     """Flagship h-band LF in redshift slices, assuming it's volume-limited 
-    to M_h ~ -20 at z = 1.0."""
+    to M_h ~ -18 at z = 1.0."""
 
     def Schechter(M, alpha, Mstar, phistar):
         L = 10**(0.4*(Mstar-M))
@@ -617,10 +617,11 @@ def lf(infile='14516.fits', zbins=np.linspace(0.0, 1.0, 6),
         alpha_err[iz], Mstar_err[iz], phistar_err[iz] = pcov[0][0]**0.5, pcov[1][1]**0.5, pcov[2][2]**0.5, 
         lbl = f'z = {zlo:3.1f} - {zhi:3.1f}; {popt[0]:3.2f} {popt[1]:3.2f} {popt[2]:3.2e}'
         color = next(ax._get_lines.prop_cycler)['color']
-        plt.errorbar(Mcen, phi, phi_err, fmt='None', color=color, label=lbl)
+        plt.errorbar(Mcen, phi, phi_err, fmt='o', color=color, label=lbl)
         plt.plot(Mcen, Schechter(Mcen, *popt), color=color)
 #        print(phi, phi_err)
     plt.semilogy(base=10)
+    plt.ylim(1e-8, 1e-2)
     plt.xlabel(r'$M_h$')
     plt.ylabel(r'$\Phi(M_h)$')
     plt.legend()
@@ -628,9 +629,11 @@ def lf(infile='14516.fits', zbins=np.linspace(0.0, 1.0, 6),
 
     # Schechter parameters as function of z (zfit=0) or lg(1+z) if zfit=1
     zp = np.array([zbins[0], zbins[-1]])
+    zlbl = 'z'
     if zfit:
         zmean = np.log10(1+zmean)
         zp = np.log10(1+zp)
+        zlbl = 'lg(1+z)'
     fig, axes = plt.subplots(3, 1, sharex=True, num=2)
     fig.set_size_inches(5, 6)
     fig.subplots_adjust(hspace=0, wspace=0)
@@ -640,7 +643,7 @@ def lf(infile='14516.fits', zbins=np.linspace(0.0, 1.0, 6),
     p = Polynomial.fit(zmean, alpha, deg=1, w=alpha_err**-2)
     yp = p(zp)
     ax.plot(zp, yp)
-    ax.text(0.4, 0.85, rf'$\alpha = {p.coef[0]:5.3f} + {p.coef[1]:5.3f} z$',
+    ax.text(0.4, 0.85, rf'$\alpha = {p.coef[0]:5.3f} + {p.coef[1]:5.3f} {zlbl}$',
             transform=ax.transAxes)
     ax.set_ylabel(r'$\alpha$')
 
@@ -649,7 +652,7 @@ def lf(infile='14516.fits', zbins=np.linspace(0.0, 1.0, 6),
     p = Polynomial.fit(zmean, Mstar, deg=1, w=Mstar_err**-2)
     yp = p(zp)
     ax.plot(zp, yp)
-    ax.text(0.4, 0.85, rf'$M^* = {p.coef[0]:5.3f} + {p.coef[1]:5.3f} z$',
+    ax.text(0.4, 0.85, rf'$M^* = {p.coef[0]:5.3f} + {p.coef[1]:5.3f} {zlbl}$',
             transform=ax.transAxes)
     ax.set_ylabel(r'$M^*$')
     
@@ -658,13 +661,10 @@ def lf(infile='14516.fits', zbins=np.linspace(0.0, 1.0, 6),
     p = Polynomial.fit(zmean, phistar, deg=1, w=phistar_err**-2)
     yp = p(zp)
     ax.plot(zp, yp)
-    ax.text(0.4, 0.85, rf'$\phi^* = {p.coef[0]:3.2e} + {p.coef[1]:3.2e} z$',
+    ax.text(0.4, 0.85, rf'$\phi^* = {p.coef[0]:3.2e} + {p.coef[1]:3.2e} {zlbl}$',
             transform=ax.transAxes)
     ax.set_ylabel(r'$\Phi^*$')
-    if zfit:
-        ax.set_xlabel('log(1+z)')
-    else:
-        ax.set_xlabel('Redshift')
+    ax.set_xlabel('log(1+z)')
     plt.show()
 
 
