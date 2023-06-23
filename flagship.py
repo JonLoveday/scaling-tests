@@ -581,13 +581,13 @@ def kcorr(infile='14516.fits', M_bins=np.linspace(-26, -16, 6),
 
 def lf(infile='14516.fits', zbins=np.linspace(0.0, 1.0, 6),
        magbins=np.linspace(-26, -18, 33), p0=[-1.45, -21, 1e-3],
-       bounds=([-1.451, -23, 1e-4], [-1.449, -19, 1e-2]), zfit=0):
+       bounds=([-1.451, -23, 1e-4], [-1.449, -19, 1e-2]), zfit=0, beta=1):
     """Flagship h-band LF in redshift slices, assuming it's volume-limited 
     to M_h ~ -18 at z = 1.0."""
 
     def Schechter(M, alpha, Mstar, phistar):
         L = 10**(0.4*(Mstar-M))
-        schec = 0.4*ln10*phistar*L**(alpha+1)*np.exp(-L)
+        schec = 0.4*ln10*phistar*L**(alpha+1)*np.exp(-L**beta)
         return schec
 
     t = Table.read(infile)

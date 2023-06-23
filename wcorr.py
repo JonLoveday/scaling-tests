@@ -1135,3 +1135,11 @@ def corrfunc_test(nran=1000, tmin=0.01, tmax=10, nbins=20):
 
     counts = Corrfunc.mocks.DDtheta_mocks(1, 1, bins, ra.astype('float32'), dec.astype('float32'))
     print(counts)
+
+    theta = np.linspace(0, 180, 181)
+    plt.clf()
+    plt.plot(theta, np.sin(np.deg2rad(theta)/2)**2)
+    plt.xlabel(r'$\theta$')
+    plt.ylabel(r'$\sin^2(\theta/2)$')
+    plt.show()
+    
