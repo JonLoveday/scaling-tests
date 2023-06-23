@@ -63,10 +63,10 @@ def wcounts(infile='14516.fits', mask_file='mask.ply', out_pref='w_mag/',
         sel = (magbins[imag] <= mag) * (mag < magbins[imag+1])
         sub[sel] = imag
         mmean[imag] = np.mean(mag[sel])
-        print(imag, mmean[imag], np.percentile(t['rabs'][sel], (5, 50, 95)))
+        print(imag, mmean[imag], np.percentile(t['habs'][sel], (5, 50, 95)))
         if plots:
             ax = axes[imag]
-            ax.hist(t['rabs'][sel], bins=np.linspace(-24, -15, 19))
+            ax.hist(t['habs'][sel], bins=np.linspace(-24, -15, 19))
             ax.text(0.7, 0.8, rf'm = {magbins[imag]:3.1f}-{magbins[imag+1]:3.1f}',
                     transform=ax.transAxes)
 
@@ -125,7 +125,7 @@ def xir_counts(infile='14516.fits', mask_file='mask.ply',
         print('Using', ncpu, 'CPUs')
     
     t = Table.read(infile)
-    ra, dec, rabs = t['ra_gal'], t['dec_gal'], t['habs']
+    ra, dec, Mag = t['ra_gal'], t['dec_gal'], t['habs']
     redshift = t['true_redshift_gal']
     r = cosmo.dc(redshift)
 
@@ -134,8 +134,8 @@ def xir_counts(infile='14516.fits', mask_file='mask.ply',
         for im in range(nM):
             Mlo, Mhi = Mbins[im], Mbins[im+1]
             sel = ((zlo <= redshift) * (redshift < zhi) *
-                   (Mlo <= rabs) * (rabs < Mhi))
-            Mmean = np.mean(rabs[sel])
+                   (Mlo <= Mag) * (Mag < Mhi))
+            Mmean = np.mean(Mag[sel])
             zmean = np.mean(redshift[sel])
             galcat = wcorr.Cat(ra[sel], dec[sel], r=r[sel])
             galcat.assign_jk(limits, nra, ndec)
