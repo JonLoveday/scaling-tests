@@ -18,6 +18,9 @@
 #$ -q smp.q
 #$ -pe openmp 16
 #$ -l m_mem_free=2G
+conda deactivate
+conda activate jon
+echo $PATH
 cd /research/astro/gama/loveday/Data/4MOST/WAVES/2023May
 python <<EOF
 import waves
