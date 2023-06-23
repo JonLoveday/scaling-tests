@@ -51,7 +51,7 @@ def wcounts(infile='14516.fits', mask_file='mask.ply', out_pref='w_mag/',
     t = Table.read(infile)
     sel = t['hmag'] < magbins[-1]
     t = t[sel]
-    ra, dec, mag = t['ra_gal'], t['dec_gal'], t['hmag']
+    ra, dec, mag = t['ra_gal'].astype('float64'), t['dec_gal'].astype('float64'), t['hmag']
     mmean = np.zeros(len(magbins)-1)
     sub = np.zeros(len(ra), dtype='int8')
     if plots:
@@ -530,7 +530,7 @@ def xir_M_z_plot(nm=6, nz=5, njack=9, fit_range=[0.1, 20], p0=[5, 1.7],
     plt.show()
 
 
-def kcorr(infile='14516.fits', M_bins=np.linspace(-24, -16, 5),
+def kcorr(infile='14516.fits', M_bins=np.linspace(-26, -16, 6),
           nplot=100000):
     """Empirically determine flagship K-corrections using k = m - M - DM."""
 
