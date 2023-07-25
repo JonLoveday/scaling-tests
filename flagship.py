@@ -510,7 +510,7 @@ def r0_fun(p, M, z):
 def gam_fun(p, M, z):
     return (p[0] + p[1]*(M+20) + p[2]*(M+20)**2) * (1+z)**(-(3 + p[3]))
 
-def xir_M_z_plot(nm=7, nz=5, njack=9, fit_range=[0.1, 20], p0=[5, 1.7],
+def xir_M_z_plot(nm=7, nz=10, njack=9, fit_range=[0.1, 20], p0=[5, 1.7],
                  prefix='xir_z/', avgcounts=False, Ngal_min=500,
                  outfile='xi_pars.pkl'):
     """xi(r) from pair counts in Magnitude and redshift bins."""
