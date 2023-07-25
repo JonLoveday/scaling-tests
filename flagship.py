@@ -1,7 +1,7 @@
 # Clustering/LF measurements for Euclid flagship
 
 import glob
-from gplearn.genetic import SymbolicRegressor
+# from gplearn.genetic import SymbolicRegressor
 import math
 import matplotlib.backends.backend_pdf
 import matplotlib.pyplot as plt
