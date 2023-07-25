@@ -1,6 +1,7 @@
 # Clustering/LF measurements for Euclid flagship
 
 import glob
+from gplearn.genetic import SymbolicRegressor
 import math
 import matplotlib.backends.backend_pdf
 import matplotlib.pyplot as plt
@@ -12,6 +13,7 @@ from numpy.random import default_rng
 import pdb
 import pickle
 import pylab as plt
+from scipy import interpolate
 import scipy.optimize
 import subprocess
 from astropy import constants as const
@@ -30,11 +32,13 @@ import wcorr
 
 ln10 = math.log(10)
 rng = default_rng()
+np.seterr(all='warn')
 
 # Flagship2 cosomology, converting to h=1 units
 h = 1
 Om0 = 0.319
-cosmo = util.CosmoLookup(h, Om0)
+cosmo = util.CosmoLookup(h, Om0, zbins=np.linspace(0.0001, 2, 200))
+solid_angle = 400 * (math.pi/180)**2
 
 def wcounts(infile='14516.fits', mask_file='mask.ply', out_pref='w_mag/',
             limits=(180, 200, 0, 20), nran=100000, nra=4, ndec=4,
@@ -111,7 +115,7 @@ def wcounts(infile='14516.fits', mask_file='mask.ply', out_pref='w_mag/',
 
 def xir_counts(infile='14516.fits', mask_file='mask.ply',
          Mbins=np.linspace(-26, -12, 8),
-         zbins=np.linspace(0, 1, 6), limits=(180, 200, 0, 20),
+         zbins=np.linspace(0, 2, 11), limits=(180, 200, 0, 20),
          ranfac=1, nra=3, ndec=3, rbins=np.logspace(-1, 2, 16),
          randist='shuffle', out_pref='xir_z/', multi=True):
     """Real-space pair counts in magnitude and redshift bins."""
@@ -242,14 +246,13 @@ def w_plot(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7], prefix='w_mag/
                       phistar=phistar, kcoeffs=kcoeffs)
 
 def w_plot_pred(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7], prefix='w_mag/',
-           avgcounts=False, gamma1=1.67, gamma2=3.8, r0=6.0, eps=-2.7,
-           Mmin=-24, Mmax=-12, alpha=[-0.956, -0.196], Mstar=[-21.135, -0.497],
-           phistar=[3.26e-3, -1.08e-3], kcoeffs=[0.0, -0.39, 1.67], ic_corr=0,
+                avgcounts=False, lf_pars='lf_pars.pkl', xi_pars='xi_pars.pkl',
+                Mmin=-24, Mmax=-12, kcoeffs=[0.0, -0.39, 1.67], ic_corr=0,
                 pltfile='intergrand_plots.pdf'):
     """Plot observed and predicted w(theta) in mag bins."""
 
     if pltfile:
-        pdf = matplotlib.backends.backend_pdf.PdfPages(pltfilename)
+        pdf = matplotlib.backends.backend_pdf.PdfPages(pltfile)
     else:
         pdf = None
     fig = plt.figure()
@@ -277,13 +280,15 @@ def w_plot_pred(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7], prefix='w
         corr.plot(ax, color=color, label=f"m = [{info['mlo']}, {info['mhi']}]")
 
         selfn = util.SelectionFunction(
-            cosmo, alpha=alpha, Mstar=Mstar, phistar=phistar,
+            cosmo, lf_pars=lf_pars, 
             mlo=info['mlo'], mhi=info['mhi'], Mmin=Mmin, Mmax=Mmax,
-            nksamp=0, kcoeffs=kcoeffs)
+            nksamp=0, kcoeffs=kcoeffs, solid_angle=solid_angle)
         w = []
+        plot_den = 1
         for t in corr.sep:
-            wp = limber.w_lum(cosmo, selfn, t, 0.5*(info['mlo']+info['mhi']),
-                              pdf=pdf)
+            wp = limber.w_lum(cosmo, selfn, t, info['mmean'],
+                              xi_pars, pdf=pdf, plot_den=plot_den)
+            plot_den = 0
             w.append(wp)
         ax.plot(corr.sep, w, color=color)
         # popt, pcov = corr.fit_w(fit_range, p0, ax, color)
@@ -297,6 +302,113 @@ def w_plot_pred(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7], prefix='w
     plt.ylabel(r'$w(\theta)$')
     plt.show()
     plt.close(fig)
+
+
+def w_plot_pred_Nz(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7], prefix='w_mag/',
+                avgcounts=False, Nz_file='Nz.pkl', xi_pars='xi_pars.pkl',
+                ic_corr=0,  pltfile='intergrand_plots.pdf'):
+    """Plot observed and predicted w(theta) in mag bins using observed N(z)."""
+
+    counts_dict = pickle.load(open(Nz_file, 'rb'))
+    if pltfile:
+        pdf = matplotlib.backends.backend_pdf.PdfPages(pltfile)
+    else:
+        pdf = None
+    fig = plt.figure()
+    ax = plt.subplot(111)
+    corr_slices = []
+    for imag in range(nmag):
+        corrs = []
+        for ijack in range(njack+1):
+            infile = f'{prefix}RR_J{ijack}.pkl'
+            (info, RR_counts) = pickle.load(open(infile, 'rb'))
+            infile = f'{prefix}GG_J{ijack}_m{imag}.pkl'
+            (info, DD_counts) = pickle.load(open(infile, 'rb'))
+            infile = f'{prefix}GR_J{ijack}_m{imag}.pkl'
+            (info, DR_counts) = pickle.load(open(infile, 'rb'))
+            corrs.append(
+                wcorr.Corr1d(info['Ngal'], info['Nran'],
+                             DD_counts, DR_counts, RR_counts,
+                             mlo=info['mlo'], mhi=info['mhi']))
+        corr = corrs[0]
+        corr.err = np.std(np.array([corrs[i].est for i in range(1, njack+1)]), axis=0)
+        if ic_corr:
+            corr.ic_calc(fit_range, p0, 5)
+        corr_slices.append(corr)
+        color = next(ax._get_lines.prop_cycler)['color']
+        corr.plot(ax, color=color, label=f"m = [{info['mlo']}, {info['mhi']}]")
+
+        (mlo, mhi, counts, popt) = counts_dict[imag]
+        assert(info['mlo']==mlo and info['mhi']==mhi)
+        w = []
+        plot_den = 1
+        for t in corr.sep:
+            wp = limber.w_lum_Nz(cosmo, popt, t, info['mmean'],
+                                 xi_pars, pdf=pdf, plot_den=plot_den)
+            plot_den = 0
+            w.append(wp)
+        ax.plot(corr.sep, w, color=color)
+        # popt, pcov = corr.fit_w(fit_range, p0, ax, color)
+        # print(popt, pcov)
+
+    if pdf:
+        pdf.close()
+    plt.loglog()
+    plt.legend()
+    plt.xlabel(r'$\theta$ / degrees')
+    plt.ylabel(r'$w(\theta)$')
+    plt.show()
+    plt.close(fig)
+
+
+def Nz(infile='14516.fits', magbins=np.linspace(15, 20, 6),
+       zbins=np.linspace(0.0, 2.0, 41), lf_pars='lf_pars.pkl',
+       Mmin=-24, Mmax=-12, kcoeffs=[0.0, -0.39, 1.67], outfile='Nz.pkl'):
+    """Plot observed and predicted N(z) histograms in mag slices."""
+
+    def be_fit(z, zc, alpha, beta, norm):
+        """Generalised Baugh & Efstathiou (1993, eqn 7) model for N(z)."""
+        return norm * z**alpha * np.exp(-(z/zc)**beta)
+    
+    t = Table.read(infile)
+    sel = t['hmag'] < magbins[-1]
+    t = t[sel]
+    mag, z = t['hmag'], t['true_redshift_gal']
+    zcen = zbins[:-1] + 0.5*np.diff(zbins)
+    zmin, zmax = zbins[0], zbins[-1]
+    zp = np.linspace(zmin, zmax, 500)
+    counts_dict = {'zbins': zbins, 'zcen': zcen}
+    plt.clf()
+    ax = plt.subplot(111)
+    for imag in range(len(magbins) - 1):
+        mlo, mhi = magbins[imag], magbins[imag+1]
+        sel = (magbins[imag] <= mag) * (mag < magbins[imag+1])
+        color = next(ax._get_lines.prop_cycler)['color']
+        counts, edges = np.histogram(z[sel], zbins)
+        # spline = interpolate.UnivariateSpline(zcen, counts, bbox=(zmin, zmax),
+        #                                       s=len(counts)*np.std(counts))
+        # print(spline.roots(), spline.get_residual(), spline.get_knots(), spline.get_coeffs())
+        #         pdb.set_trace()
+        popt, pcov = scipy.optimize.curve_fit(be_fit, zcen, counts,
+                                              p0=(0.5, 2.0, 1.5, 1e6))
+        print(popt)
+
+        counts_dict.update({imag: (mlo, mhi, counts, popt)})
+        plt.stairs(counts, edges, color=color, label=f"m = {mlo}, {mhi}]")
+        # plt.plot(zp, spline(zp), color=color, ls='-')
+        plt.plot(zp, be_fit(zp, *popt), color=color, ls='-')
+        selfn = util.SelectionFunction(
+            cosmo, lf_pars=lf_pars, 
+            mlo=mlo, mhi=mhi, Mmin=Mmin, Mmax=Mmax,
+            nksamp=0, kcoeffs=kcoeffs, solid_angle=solid_angle,
+            dz=zbins[1]-zbins[0])
+        selfn.plot_Nz(ax, color=color, ls='--')
+
+    pickle.dump(counts_dict, open(outfile, 'wb'))
+    plt.legend()
+    plt.xlabel('z')
+    plt.ylabel('N(z)')
+    plt.show()
 
 
 def mcmc(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7], prefix='w_mag/',
@@ -392,33 +504,43 @@ def xir_z_plot(nz=5, njack=8, fit_range=[0.1, 20], p0=[5, 1.7], prefix='xir_z/',
     plt.show()
 
 
-def xir_M_z_plot(nm=6, nz=5, njack=9, fit_range=[0.1, 20], p0=[5, 1.7],
-                 prefix='xir_z/', avgcounts=False):
+def r0_fun(p, M, z):
+    return (p[0] + p[1]*(M+20) + p[2]*(M+20)**2) * (1+z)**(-(3 + p[3]))
+
+def gam_fun(p, M, z):
+    return (p[0] + p[1]*(M+20) + p[2]*(M+20)**2) * (1+z)**(-(3 + p[3]))
+
+def xir_M_z_plot(nm=7, nz=5, njack=9, fit_range=[0.1, 20], p0=[5, 1.7],
+                 prefix='xir_z/', avgcounts=False, Ngal_min=500,
+                 outfile='xi_pars.pkl'):
     """xi(r) from pair counts in Magnitude and redshift bins."""
 
-    def xi_ev(z, A, eps):
-        """Amplitude evolution of xi(r) = A * (1+z)**(-(3 + eps)."""
-        return A * (1+z)**(-(3 + eps))
+    # def xi_ev(z, A, eps):
+    #     """Amplitude evolution of xi(r) = A * (1+z)**(-(3 + eps)."""
+    #     return A * (1+z)**(-(3 + eps))
     
-    def r0_fun(Mz, r0_0, am, Mstar, eps):
-        """r0 = r0_0 * (1+z)**(-(3 + eps) + am * L/L*."""
-        M, z = Mz[0, :], Mz[1, :]
-        return r0_0 * (1+z)**(-(3 + eps)) + am * 10**(0.4*(Mstar - M)) 
+    # def r0_fun(Mz, r0_0, am, Mstar, eps):
+    #     """r0 = r0_0 * (1+z)**(-(3 + eps) + am * L/L*."""
+    #     M, z = Mz[0, :], Mz[1, :]
+    #     return r0_0 * (1+z)**(-(3 + eps)) + am * 10**(0.4*(Mstar - M)) 
     
     # def gam_fun(Mz, gam_0, am, Mstar, eps):
     #     """gamma = gam_0 * (1+z)**(-(3 + eps) * am * L/L*."""
     #     M, z = Mz[0, :], Mz[1, :]
     #     return gam_0 * (1+z)**(-(3 + eps)) + am * 10**(0.4*(Mstar - M)) 
+
+    def r0_resid(p, M, z, r0, r0_err):
+        return ((r0_fun(p, M, z) - r0)/r0_err)**2
     
-    # def r0_fun(Mz, r0_0, a1, a2, eps):
-    #     """r0 = r0_0 * (1+z)**(-(3 + eps) + a1*M + a2*M^2."""
-    #     M, z = Mz[0, :], Mz[1, :]
-    #     return r0_0 * (1+z)**(-(3 + eps)) + a1*M + a2*M**2
+    def gam_resid(p, M, z, gam, gam_err):
+        return ((gam_fun(p, M, z) - gam)/gam_err)**2
     
-    def gam_fun(Mz, gam_0, a1, a2, eps):
-        """gamma = gam_0 * (1+z)**(-(3 + eps) * a1*M + a2*M**2."""
-        M, z = Mz[0, :], Mz[1, :]
-        return gam_0 * (1+z)**(-(3 + eps)) + a1 + a2*M
+    def power_law(r, r0, gamma):
+        """Power law xi(r) = (r0/r)**gamma."""
+        return (r0/r)**gamma
+
+    # Read model fit parameters from previous run to add to first plot
+    xi_dict = pickle.load(open(outfile, 'rb'))
     
     plt.clf()
     fig, axes = plt.subplots(1, nz, sharex=True, sharey=True, num=1)
@@ -447,7 +569,7 @@ def xir_M_z_plot(nm=6, nz=5, njack=9, fit_range=[0.1, 20], p0=[5, 1.7],
                     corrs.append(
                         wcorr.Corr1d(info['Ngal'], info['Nran'],
                                      DD_counts, DR_counts, RR_counts))
-                if info['Ngal'] > 100:
+                if info['Ngal'] > Ngal_min:
                     corr = corrs[0]
                     corr.err = np.std(np.array([corrs[i].est for i in range(1, njack+1)]), axis=0)
                     color = next(ax._get_lines.prop_cycler)['color']
@@ -458,6 +580,12 @@ def xir_M_z_plot(nm=6, nz=5, njack=9, fit_range=[0.1, 20], p0=[5, 1.7],
                     #           label=rf"M = [{info['Mlo']:3.1f}, {info['Mhi']:3.1f}], $r_0 = {popt[0]:3.2f} \pm {pcov[0][0]**0.5:3.2f}$, $\gamma = {popt[1]:3.2f} \pm {pcov[1][1]**0.5:3.2f}$")
                     Mmean[im, iz] = info['Mmean']
                     zmean[im, iz] = info['zmean']
+                    r0m = xi_dict['r0_fun'](xi_dict['r0_pars'],
+                                           Mmean[im, iz], zmean[im, iz])
+                    gammam = xi_dict['gam_fun'](xi_dict['gam_pars'],
+                                               Mmean[im, iz], zmean[im, iz])
+                    ax.plot(corr.sep, power_law(corr.sep, r0m, gammam), '--',
+                            color=color)
                     r0[im, iz], gamma[im, iz] = popt[0], popt[1]
                     r0_err[im, iz], gamma_err[im, iz] = pcov[0,0]**0.5, pcov[1,1]**0.5
                     print(info['zlo'], info['zhi'], info['Mlo'], info['Mhi'],
@@ -499,13 +627,24 @@ def xir_M_z_plot(nm=6, nz=5, njack=9, fit_range=[0.1, 20], p0=[5, 1.7],
     plt.show()
 
     ok = ~Mmean.mask
-    Mz = np.ma.vstack((Mmean[ok].flatten(), zmean[ok].flatten()))
-    r0_popt, r0_pcov = scipy.optimize.curve_fit(
-        r0_fun, Mz, r0[ok].flatten(), p0=(4, 0.1, -21, 0), sigma=r0_err[ok].flatten())
-    gam_popt, gam_pcov = scipy.optimize.curve_fit(
-        gam_fun, Mz, gamma[ok].flatten(), p0=(4, 0.1, -21, 0), sigma=gamma_err[ok].flatten())
-    print('r0 fit pars:', r0_popt)
-    print('gamma fit pars:', gam_popt)
+    # Mz = np.ma.vstack((Mmean[ok].flatten(), zmean[ok].flatten()))
+    # r0_popt, r0_pcov = scipy.optimize.curve_fit(
+    #     r0_fun, Mz, r0[ok].flatten(), p0=(4, 0.1, -21, 0),
+    #     sigma=r0_err[ok].flatten(), ftol=0.001, xtol=0.001)
+    # gam_popt, gam_pcov = scipy.optimize.curve_fit(
+    #     gam_fun, Mz, gamma[ok].flatten(), p0=(4, 0.1, -21, 0),
+    #     sigma=gamma_err[ok].flatten(), ftol=0.001, xtol=0.001)
+    r0_pars, ier = scipy.optimize.leastsq(
+        r0_resid, x0=(4, 0, 0, 0), args=(Mmean[ok], zmean[ok], r0[ok], r0_err[ok]),
+        ftol=0.001, xtol=0.001)
+    gam_pars, ier = scipy.optimize.leastsq(
+        gam_resid, x0=(1.8, 0, 0, 0), args=(Mmean[ok], zmean[ok], gamma[ok], gamma_err[ok]),
+        ftol=0.001, xtol=0.001)
+    print('r0 fit pars:', r0_pars)
+    print('gamma fit pars:', gam_pars)
+    xi_dict = {'r0_fun': r0_fun, 'r0_pars': r0_pars,
+               'gam_fun': gam_fun, 'gam_pars': gam_pars}
+    pickle.dump(xi_dict, open(outfile, 'wb'))
 
     fig, axes = plt.subplots(2, nz, sharex=True, sharey='row', num=3)
     fig.set_size_inches(16, 8)
@@ -522,20 +661,61 @@ def xir_M_z_plot(nm=6, nz=5, njack=9, fit_range=[0.1, 20], p0=[5, 1.7],
                 transform=ax.transAxes)
                 ax.errorbar(Mmean[:, iz], r0[:, iz], r0_err[:, iz])
                 ax.plot(Mmean[:, iz],
-                         r0_fun(np.vstack((Mmean[:, iz], zmean[:, iz])), *r0_popt))
+                         r0_fun(r0_pars, Mmean[:, iz], zmean[:, iz]))
             else:
                 ax.errorbar(Mmean[:, iz], gamma[:, iz], gamma_err[:, iz])
                 ax.plot(Mmean[:, iz],
-                         gam_fun(np.vstack((Mmean[:, iz], zmean[:, iz])), *gam_popt))
+                         gam_fun(gam_pars, Mmean[:, iz], zmean[:, iz]))
     plt.show()
-
+   
+    # Mz = np.ma.vstack((Mmean[ok].flatten(), zmean[ok].flatten())).T
+    # r0_gp = SymbolicRegressor(population_size=5000,
+    #                            generations=50, stopping_criteria=0.01,
+    #                            const_range=(-100, 100),
+    #                            p_crossover=0.7, p_subtree_mutation=0.1,
+    #                            p_hoist_mutation=0.05, p_point_mutation=0.1,
+    #                            max_samples=0.9, verbose=1,
+    #                            parsimony_coefficient=0.001, random_state=0)
+    # r0_gp.fit(Mz, r0[ok], sample_weight=r0_err[ok]**-2)
+    # print('r0:', r0_gp._program)
+    
+    # gam_gp = SymbolicRegressor(population_size=5000,
+    #                            generations=50, stopping_criteria=0.01,
+    #                            const_range=(-100, 100),
+    #                            p_crossover=0.7, p_subtree_mutation=0.1,
+    #                            p_hoist_mutation=0.05, p_point_mutation=0.1,
+    #                            max_samples=0.9, verbose=1,
+    #                            parsimony_coefficient=0.001, random_state=0)
+    # gam_gp.fit(Mz, gamma[ok], sample_weight=gamma_err[ok]**-2)
+    # print('gamma:', gam_gp._program)
+    
+    # fig, axes = plt.subplots(2, nz, sharex=True, sharey='row', num=4)
+    # fig.set_size_inches(16, 8)
+    # fig.subplots_adjust(hspace=0, wspace=0)
+    # axes[0, 0].set_ylabel(r'$r_0$')
+    # axes[1, 0].set_ylabel(r'$\gamma$')
+    # axes[1, 2].set_xlabel(r'$M_r$')
+    # for iy in range(2):
+    #     for iz in range(nz):
+    #         # pdb.set_trace()
+    #         Mz = np.ma.vstack((Mmean[:, iz], zmean[:, iz])).T
+    #         ax = axes[iy, iz]
+    #         if iy == 0:
+    #             ax.text(0.5, 0.9, rf"z = [{zlo[iz]:3.1f}, {zhi[iz]:3.1f}]",
+    #             transform=ax.transAxes)
+    #             ax.errorbar(Mmean[:, iz], r0[:, iz], r0_err[:, iz])
+    #             ax.plot(Mmean[:, iz], r0_gp.predict(Mz))
+    #         else:
+    #             ax.errorbar(Mmean[:, iz], gamma[:, iz], gamma_err[:, iz])
+    #             ax.plot(Mmean[:, iz], gam_gp.predict(Mz))
+    # plt.show()
 
 def kcorr(infile='14516.fits', M_bins=np.linspace(-26, -16, 6),
           nplot=100000):
     """Empirically determine flagship K-corrections using k = m - M - DM."""
 
     t = Table.read(infile)
-    sel = t['true_redshift_gal'] < 1
+    sel = t['true_redshift_gal'] < 2
     t = t[sel]
 
     m, M, z = t['hmag'], t['habs'], t['true_redshift_gal']
@@ -546,7 +726,7 @@ def kcorr(infile='14516.fits', M_bins=np.linspace(-26, -16, 6),
     z, k, M = z[sel], k[sel], M[sel]
     
     # Polynomial fit to K(z), constrained to pass through origin
-    zp = np.linspace(0, 1, 21)
+    zp = np.linspace(0, 2, 41)
     plt.clf()
     ip = rng.choice(len(z), nplot)
 
@@ -557,13 +737,13 @@ def kcorr(infile='14516.fits', M_bins=np.linspace(-26, -16, 6),
     #     plt.plot(zp, kfit, label=str(deg))
     #     print(p.coef)
     deg = [1,2]
-    p = Polynomial.fit(z, k, deg=deg, domain=[0, 1], window=[0, 1])
+    p = Polynomial.fit(z, k, deg=deg, domain=[0, 2], window=[0, 2])
     kfit = p(zp)
     plt.plot(zp, kfit, label='All')
     print(p.coef)
     for im in range(len(M_bins)-1):
         sel = (M_bins[im] <= M) * (M < M_bins[im+1])
-        p = Polynomial.fit(z[sel], k[sel], deg=deg, domain=[0, 1], window=[0, 1])
+        p = Polynomial.fit(z[sel], k[sel], deg=deg, domain=[0, 2], window=[0, 2])
         kfit = p(zp)
         plt.plot(zp, kfit, label=f'[{M_bins[im]},  {M_bins[im+1]}]')
         print(p.coef)
@@ -579,11 +759,17 @@ def kcorr(infile='14516.fits', M_bins=np.linspace(-26, -16, 6),
     plt.show()
 
 
-def lf(infile='14516.fits', zbins=np.linspace(0.0, 1.0, 6),
-       magbins=np.linspace(-26, -18, 33), p0=[-1.45, -21, 1e-3],
-       bounds=([-1.451, -23, 1e-4], [-1.449, -19, 1e-2]), zfit=0, beta=1):
-    """Flagship h-band LF in redshift slices, assuming it's volume-limited 
-    to M_h ~ -18 at z = 1.0."""
+def zfun_lin(z, p):
+    return p[0] + p[1]*z
+    
+def zfun_log(z, p):
+    return p[0] + p[1]*np.log10(1+z)
+    
+def lf(infile='14516.fits', zbins=np.linspace(0.0, 2.0, 11), mlim=25,
+       magbins=np.linspace(-26, -19, 29), p0=[-1.45, -21, 1e-3],
+       bounds=([-1.451, -23, 1e-4], [-1.449, -19, 1e-2]), zfit=0, beta=1,
+       outfile='lf_pars.pkl'):
+    """Flagship h-band LF in redshift slices, assuming zero k-correction."""
 
     def Schechter(M, alpha, Mstar, phistar):
         L = 10**(0.4*(Mstar-M))
@@ -592,55 +778,73 @@ def lf(infile='14516.fits', zbins=np.linspace(0.0, 1.0, 6),
 
     t = Table.read(infile)
     Mcen = magbins[:-1] + np.diff(magbins)
-    area_frac = 20*20*(math.pi/180)**2/(4*math.pi)
+    area_frac = solid_angle/(4*math.pi)
     nz = len(zbins)-1
     zmean = np.zeros(nz)
     alpha, Mstar, phistar = np.zeros(nz), np.zeros(nz), np.zeros(nz)
     alpha_err, Mstar_err, phistar_err = np.zeros(nz), np.zeros(nz), np.zeros(nz)
-    plt.clf()
-    ax = plt.gca()
+    # plt.clf()
+    # fig1, axes1 = plt.subplots(1, 1, num=1)
+    # fig2, axes2 = plt.subplots(5, 1, sharex=True, num=2)
+    fig = plt.figure(1)
+    ax = fig.subplots()
     for iz in range(nz):
         zlo, zhi = zbins[iz], zbins[iz+1]
-        vol = area_frac * (cosmo.comoving_volume(zhi) - cosmo.comoving_volume(zlo))
+        Vzlo = cosmo.comoving_volume(zlo)
         sel = (zlo <= t['true_redshift_gal']) * (t['true_redshift_gal'] < zhi)
-        zmean[iz] = np.mean(t['true_redshift_gal'][sel])
-#        zmean[iz] = np.log10(1 + zmean[iz])
-        hist, edges = np.histogram(t['habs'][sel], magbins)
-        phi = hist/vol
-        phi_err = phi/hist**0.5
-        use = phi > 0
+        m, M, z = t['hmag'][sel], t['habs'][sel], t['true_redshift_gal'][sel]
+        dm = cosmo.distmod(z)
+        k = m - M - dm
+        zlim = np.clip(cosmo.z_at_distmod(mlim - M - k), zlo, zhi)
+        zmean[iz] = np.mean(z)
+        V = area_frac * (cosmo.comoving_volume(z) - Vzlo)
+        Vmax = area_frac * (cosmo.comoving_volume(zlim) - Vzlo)
+        Vsel = Vmax > 0
+        VVm = (V/Vmax)[Vsel]
+        print(zlo, zhi, np.mean(VVm), np.std(VVm))
+        # axes[iz].hist(VVm)
+        N, edges = np.histogram(M, magbins)
+        phi, edges = np.histogram(M, magbins, weights=1/Vmax)
+        phi /= np.diff(magbins)
+        phi_err = phi/N**0.5
+        use = N > 0
         popt, pcov = scipy.optimize.curve_fit(
-            Schechter, Mcen[use], phi[use], p0=p0, sigma=phi_err[use])
+            Schechter, Mcen[use], phi[use], p0=p0, sigma=phi_err[use],
+            xtol=1e-3)
 #            absolute_sigma=True)
 #            bounds=bounds)
         alpha[iz], Mstar[iz], phistar[iz] = popt[0], popt[1], popt[2]
         alpha_err[iz], Mstar_err[iz], phistar_err[iz] = pcov[0][0]**0.5, pcov[1][1]**0.5, pcov[2][2]**0.5, 
         lbl = f'z = {zlo:3.1f} - {zhi:3.1f}; {popt[0]:3.2f} {popt[1]:3.2f} {popt[2]:3.2e}'
         color = next(ax._get_lines.prop_cycler)['color']
-        plt.errorbar(Mcen, phi, phi_err, fmt='o', color=color, label=lbl)
-        plt.plot(Mcen, Schechter(Mcen, *popt), color=color)
+        ax.errorbar(Mcen, phi, phi_err, fmt='o', color=color, label=lbl)
+        ax.plot(Mcen, Schechter(Mcen, *popt), color=color)
 #        print(phi, phi_err)
-    plt.semilogy(base=10)
-    plt.ylim(1e-8, 1e-2)
-    plt.xlabel(r'$M_h$')
-    plt.ylabel(r'$\Phi(M_h)$')
-    plt.legend()
+    ax.semilogy(base=10)
+    ax.set_ylim(1e-6, 1e-1)
+    ax.set_xlabel(r'$M_h$')
+    ax.set_ylabel(r'$\Phi(M_h)$')
+    ax.legend()
     plt.show()
 
     # Schechter parameters as function of z (zfit=0) or lg(1+z) if zfit=1
     zp = np.array([zbins[0], zbins[-1]])
     zlbl = 'z'
+    zfun = zfun_lin
     if zfit:
         zmean = np.log10(1+zmean)
         zp = np.log10(1+zp)
         zlbl = 'lg(1+z)'
-    fig, axes = plt.subplots(3, 1, sharex=True, num=2)
+        zfun = zfun_log
+    fig, axes = plt.subplots(3, 1, sharex=True, num=3)
     fig.set_size_inches(5, 6)
     fig.subplots_adjust(hspace=0, wspace=0)
-
+    lf_dict = {'zfun': zfun}
+    
     ax = axes[0]
     ax.errorbar(zmean, alpha, alpha_err)
     p = Polynomial.fit(zmean, alpha, deg=1, w=alpha_err**-2)
+    lf_dict.update({'alpha': [p.coef[0], p.coef[1]]})
     yp = p(zp)
     ax.plot(zp, yp)
     ax.text(0.4, 0.85, rf'$\alpha = {p.coef[0]:5.3f} + {p.coef[1]:5.3f} {zlbl}$',
@@ -650,6 +854,7 @@ def lf(infile='14516.fits', zbins=np.linspace(0.0, 1.0, 6),
     ax = axes[1]
     ax.errorbar(zmean, Mstar, Mstar_err)
     p = Polynomial.fit(zmean, Mstar, deg=1, w=Mstar_err**-2)
+    lf_dict.update({'Mstar': [p.coef[0], p.coef[1]]})
     yp = p(zp)
     ax.plot(zp, yp)
     ax.text(0.4, 0.85, rf'$M^* = {p.coef[0]:5.3f} + {p.coef[1]:5.3f} {zlbl}$',
@@ -659,14 +864,16 @@ def lf(infile='14516.fits', zbins=np.linspace(0.0, 1.0, 6),
     ax = axes[2]
     ax.errorbar(zmean, phistar, phistar_err)
     p = Polynomial.fit(zmean, phistar, deg=1, w=phistar_err**-2)
+    lf_dict.update({'phistar': [p.coef[0], p.coef[1]]})
     yp = p(zp)
     ax.plot(zp, yp)
     ax.text(0.4, 0.85, rf'$\phi^* = {p.coef[0]:3.2e} + {p.coef[1]:3.2e} {zlbl}$',
             transform=ax.transAxes)
     ax.set_ylabel(r'$\Phi^*$')
-    ax.set_xlabel('log(1+z)')
+    ax.set_xlabel(zlbl)
     plt.show()
 
+    pickle.dump(lf_dict, open(outfile, 'wb'))
 
 def gen_selfn(infile='14516.fits', outfile='sel_14516.pkl',
               M_bins=np.linspace(-24, -16, 5),
@@ -705,7 +912,8 @@ def gen_selfn(infile='14516.fits', outfile='sel_14516.pkl',
             cosmo, alpha=[-0.956, -0.196], Mstar=[-21.135, -0.497],
             phistar=[9.81e-4, -3.24e-4], mmin=0, mmax=25,
             Mmin=Mmin, Mmax=Mmax, ktable=ktable[sel], nksamp=nksamp,
-            kcoeffs=kcoeffs[im], sax=axes[0], nax=axes[1])
+            kcoeffs=kcoeffs[im], solid_angle=solid_angle,
+            sax=axes[0], nax=axes[1])
         key = f'{Mmin:4.1f}-{Mmax:4.1f}'
         sel_dict[key] = selfn
     pickle.dump(sel_dict, open(outfile, 'wb'))
@@ -736,4 +944,18 @@ def selfn_plot(infile='sel_14516.pkl'):
         axes[3].plot(selfn._z, selfn._sel, label=key)
         axes[4].plot(selfn._z, selfn._Nz, label=key)
     plt.legend()
+    plt.show()
+
+
+def dist_plot():
+    """Proper and comoving distance vs redshift."""
+    plt.clf()
+    plt.plot(cosmo._z, cosmo._x, label='Comoving')
+    plt.plot(cosmo._z, cosmo._x/(1 + cosmo._z), label='Proper')
+    r = np.linspace(0.0, 2000, 200)
+    z = cosmo.z_at_pdist(r)
+    plt.plot(z, r, label='z(r)')
+    plt.legend()
+    plt.xlabel('z')
+    plt.ylabel('Distance [Mpc]')
     plt.show()

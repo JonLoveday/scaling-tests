@@ -20,8 +20,8 @@ from astropy import units as u
 import pdb
 import matplotlib as mpl
 import pylab as plt
-from mpl_toolkits.axes_grid import AxesGrid
-from mpl_toolkits.axes_grid.inset_locator import inset_axes
+# from mpl_toolkits.axes_grid import AxesGrid
+# from mpl_toolkits.axes_grid.inset_locator import inset_axes
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.patches import Ellipse
 from matplotlib.projections import PolarAxes
@@ -2651,3 +2651,10 @@ def ransack_plot(infile='ransack.dat'):
     plt.clf()
     plt.scatter(data[:, 0], data[:, 1], s=0.01)
     plt.show()
+
+def testfn():
+    try:
+        print(a)
+    except:
+        print('a not defined')
+    a = 42

@@ -9,6 +9,7 @@ from numpy.random import default_rng
 import pdb
 import pickle
 import pylab as plt
+from scipy import interpolate
 import scipy.special
 import subprocess
 from astropy import constants as const
@@ -20,7 +21,7 @@ rng = default_rng()
 class CosmoLookup(object):
     """Cosmology look-up tables."""
     
-    def __init__(self, h=1, Om0=0.319, zbins=np.linspace(0.01, 1, 100)):
+    def __init__(self, h=1, Om0=0.319, zbins=np.linspace(0.0001, 1, 100)):
         cosmo = FlatLambdaCDM(H0=100*h, Om0=Om0)
         self._z = zbins
         self._nz = self._z.size
@@ -33,6 +34,9 @@ class CosmoLookup(object):
 
     def z_at_dist(self, x):
         return np.interp(x, self._x, self._z)
+
+    def z_at_distmod(self, dm):
+        return np.interp(dm, self._distmod, self._z)
 
     def z_at_pdist(self, x):
         return np.interp(x, self._x/(1 + self._z), self._z)
@@ -57,12 +61,13 @@ class CosmoLookup(object):
 class SelectionFunction(object):
     """Selection function and N(z) look-up tables."""
     
-    def __init__(self, cosmo, alpha=[-0.956, -0.196], Mstar=[-21.135, -0.497],
-                 phistar=[9.81e-4, -3.24e-4], mlo=12, mhi=20,
+    def __init__(self, cosmo, lf_pars, mlo=12, mhi=20,
                  Mmin=-24, Mmax=-12, ktable=None, nksamp=100,
-                 kcoeffs=[0, 0.65, 0.08],
+                 kcoeffs=[0, 0.65, 0.08], solid_angle=1, dz=1,
                  sax=None, nax=None):
-            
+        lf_dict = pickle.load(open(lf_pars, 'rb'))
+        zfun = lf_dict['zfun']
+        
         self._z = cosmo._z
         self._sel, self._Nz = np.zeros(cosmo._nz), np.zeros(cosmo._nz)
         self._zmean, self._Mmean, self._kmean = np.zeros(cosmo._nz), np.zeros(cosmo._nz), np.zeros(cosmo._nz)
@@ -71,11 +76,11 @@ class SelectionFunction(object):
             kp = Polynomial(kcoeffs, domain=[0, 1], window=[0, 1])
             k = kp(self._z)
         for iz in range(cosmo._nz):
-            a1 = alpha[0] + alpha[1]*self._z[iz] + 1
-            Mst = Mstar[0] + Mstar[1]*self._z[iz]
-            pst = phistar[0] + phistar[1]*self._z[iz]
+            a1 = zfun(self._z[iz], lf_dict['alpha']) + 1
+            Mst = zfun(self._z[iz], lf_dict['Mstar'])
+            pst = zfun(self._z[iz], lf_dict['phistar'])
             Lmin, Lmax = 10**(0.4*(Mst - Mmin)), 10**(0.4*(Mst - Mmax))
-            gamd = mpmath.gammainc(a1, Lmax, Lmin)
+            # gamd = mpmath.gammainc(a1, Lmax, Lmin)
             if nksamp > 0:
                 # Average gamma function for luminosity limits corresponding to
                 # k-corrections for nksamp galaxies closest in redshift
@@ -97,10 +102,10 @@ class SelectionFunction(object):
                 Mlo = np.clip(mlo - dmod - k[iz], Mmin, Mmax)
                 Mhi = np.clip(mhi - dmod - k[iz], Mmin, Mmax)
                 Llo, Lhi = 10**(0.4*(Mst - Mlo[iz])), 10**(0.4*(Mst - Mhi[iz]))
-                gamn = mpmath.gammainc(a1, Lhi, Llo)
+                gamn = pst * mpmath.gammainc(a1, Lhi, Llo)
                 
-            self._sel[iz] = gamn / gamd
-            self._Nz[iz] = pst * gamn * cosmo._differential_comoving_volume[iz]
+            self._sel[iz] = gamn * (1+self._z[iz])**3 # / gamd
+            self._Nz[iz] = gamn * cosmo._differential_comoving_volume[iz] * solid_angle * dz
         # self._dNdz = np.gradient(self._Nz, self._z[1]-self._z[0])
         # pdb.set_trace()
         if sax:
@@ -124,7 +129,17 @@ class SelectionFunction(object):
 
     def plot_Nz(self, ax, **kwargs):
         """Plot N(z)."""
-        ax.plot(self._z, self._Nz)
+        ax.plot(self._z, self._Nz, **kwargs)
+
+
+class NzCounts(object):
+    """Observed N(z) counts."""
+    
+    def __init__(self, spline):
+        self._spline = spline
+
+    def __call__(z):
+        return self._spline(z)
 
 
 def ran_dist(x, p, nran):
