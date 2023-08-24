@@ -57,57 +57,46 @@ class CosmoLookup(object):
         return np.interp(z, self._z, self._differential_comoving_volume)
 
 
-
 class SelectionFunction(object):
     """Selection function and N(z) look-up tables."""
     
     def __init__(self, cosmo, lf_pars, mlo=12, mhi=20,
-                 Mmin=-24, Mmax=-12, ktable=None, nksamp=100,
-                 kcoeffs=[0, 0.65, 0.08], solid_angle=1, dz=1,
+                 solid_angle=1, dz=1, interp=0,
                  sax=None, nax=None):
-        lf_dict = pickle.load(open(lf_pars, 'rb'))
+
+        def lf_interp(M):
+            """Interpolation of lg phi(M, z).  Limit to 0.2,
+            to avoid wacky extrapolation to very faint magnitudes."""
+            return min(0.2, 10**interpolate.interpn(
+                (Mcen, zmean), lgphi, [M, self._z[iz]],
+                bounds_error=False, fill_value=None))
+
+        kpoly, lf_dict, Mcen, zmean, lgphi = pickle.load(open(lf_pars, 'rb'))
         zfun = lf_dict['zfun']
         
         self._z = cosmo._z
         self._sel, self._Nz = np.zeros(cosmo._nz), np.zeros(cosmo._nz)
         self._zmean, self._Mmean, self._kmean = np.zeros(cosmo._nz), np.zeros(cosmo._nz), np.zeros(cosmo._nz)
         dmod = cosmo.distmod(self._z)
-        if kcoeffs is not None:
-            kp = Polynomial(kcoeffs, domain=[0, 1], window=[0, 1])
-            k = kp(self._z)
+        k = kpoly(self._z)
         for iz in range(cosmo._nz):
-            a1 = zfun(self._z[iz], lf_dict['alpha']) + 1
-            Mst = zfun(self._z[iz], lf_dict['Mstar'])
-            pst = zfun(self._z[iz], lf_dict['phistar'])
-            Lmin, Lmax = 10**(0.4*(Mst - Mmin)), 10**(0.4*(Mst - Mmax))
-            # gamd = mpmath.gammainc(a1, Lmax, Lmin)
-            if nksamp > 0:
-                # Average gamma function for luminosity limits corresponding to
-                # k-corrections for nksamp galaxies closest in redshift
-                gamn = 0
-                dz = np.abs(ktable['z'] - self._z[iz])
-                sort = np.argsort(dz)
-                for ik in range(nksamp):
-                    k = ktable['k'][sort][ik]
-                    Mlo = np.clip(mlo - dmod - k, Mmin, Mmax)
-                    Mhi = np.clip(mhi - dmod - k, Mmin, Mmax)
-                    Llo, Lhi = 10**(0.4*(Mst - Mlo[iz])), 10**(0.4*(Mst - Mhi[iz]))
-                    gamn += mpmath.gammainc(a1, Lhi, Llo)
-                gamn /= nksamp
-                self._zmean[iz] = np.mean(ktable['z'][sort][:nksamp])
-                self._Mmean[iz] = np.mean(ktable['M'][sort][:nksamp])
-                self._kmean[iz] = np.mean(ktable['k'][sort][:nksamp])
+            Mlo = mlo - dmod[iz] - k[iz]
+            Mhi = mhi - dmod[iz] - k[iz]
+            if interp:
+                gam = scipy.integrate.quad(lf_interp, Mlo, Mhi,
+                                           epsabs=0.01, epsrel=1e-3)[0]
             else:
-                # Use polynomial fit to K(z)
-                Mlo = np.clip(mlo - dmod - k[iz], Mmin, Mmax)
-                Mhi = np.clip(mhi - dmod - k[iz], Mmin, Mmax)
-                Llo, Lhi = 10**(0.4*(Mst - Mlo[iz])), 10**(0.4*(Mst - Mhi[iz]))
-                gamn = pst * mpmath.gammainc(a1, Lhi, Llo)
+                a1 = zfun(self._z[iz], lf_dict['alpha']) + 1
+                Mst = zfun(self._z[iz], lf_dict['Mstar'])
+                pst = 10**zfun(self._z[iz], lf_dict['lgphistar'])
+                Llo, Lhi = 10**(0.4*(Mst - Mlo)), 10**(0.4*(Mst - Mhi))
+                gam = pst * mpmath.gammainc(a1, Lhi, Llo)
                 
-            self._sel[iz] = gamn * (1+self._z[iz])**3 # / gamd
-            self._Nz[iz] = gamn * cosmo._differential_comoving_volume[iz] * solid_angle * dz
+            self._sel[iz] = gam * (1+self._z[iz])**3
+            self._Nz[iz] = gam * cosmo._differential_comoving_volume[iz] * solid_angle * dz
+            # if self._Nz[iz] > 2e5:
+            #     pdb.set_trace()
         # self._dNdz = np.gradient(self._Nz, self._z[1]-self._z[0])
-        # pdb.set_trace()
         if sax:
             sax.plot(self._z, self._sel,
                      label=f'{mlo} < m < {mhi}, {Mmin} < M < {Mmax}')

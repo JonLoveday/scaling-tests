@@ -59,8 +59,11 @@ class Cat(object):
         self.z = self.r * np.sin(decr)
 
     def assign_jk(self, limits, nra, ndec, verbose=0):
-        """Assign objects to a jackknife region."""
+        """Assign objects to a jackknife region.
+        See https://stackoverflow.com/questions/66799475/how-to-elegantly-find-if-an-angle-is-between-a-range for dealing with RA wrap."""
         ramin, ramax, decmin, decmax = *limits,
+        if ramax < ramin:
+            ramax += 360
         rastep, decstep = (ramax-ramin)/nra, (decmax-decmin)/ndec
         jack = 1  # jack=0 refers to full sample
         self.njack = nra*ndec
@@ -73,7 +76,7 @@ class Cat(object):
             for ira in range(nra):
                 ralo = ramin + ira*rastep
                 rahi = ramin + (ira+1)*rastep
-                sel = ((ralo <= self.ra) * (self.ra < rahi) *
+                sel = (((ralo <= self.ra - ralo) % 360 <= (rahi - ralo) % 360) *
                        (declo <= self.dec) * (self.dec < dechi))
                 self.jack[sel] = jack
                 if verbose:
@@ -212,7 +215,7 @@ class Corr1d(object):
         return popt, pcov
 
     def fit_xi(self, fit_range, p0=[5, 1.7], ax=None, color=None,
-               ftol=1e-3, xtol=1e-3):
+               ftol=1e-3, xtol=1e-3, plot_scale=1):
         """Fit a power law to xi(r)."""
 
         def power_law(r, r0, gamma):
@@ -225,7 +228,8 @@ class Corr1d(object):
             power_law, self.sep[sel], self.est[sel], p0=p0,
             sigma=self.err[sel], ftol=ftol, xtol=xtol)
         if ax:
-            ax.plot(self.sep[sel], power_law(self.sep[sel], *popt), color=color)
+            ax.plot(self.sep[sel], plot_scale[sel]*power_law(self.sep[sel], *popt),
+                    color=color)
 
         return popt, pcov
 
@@ -368,9 +372,9 @@ def ra_shift(ra):
 
 def make_rect_mask(limits=[180, 200, 0, 20], rect_mask='mask.ply'):
     """Make simple rectangular mangle mask."""
-    if limits[0] > limits[1]:
-        limits[:2] = ra_shift(limits[:2])
-        print('RA limits changed to', limits[:2])
+    # if limits[0] > limits[1]:
+    #     limits[:2] = ra_shift(limits[:2])
+    #     print('RA limits changed to', limits[:2])
 
     with open(rect_mask, 'w') as f:
         print(*limits, file=f)
@@ -821,11 +825,16 @@ def plot_sel(cosmo, wcorrs, gamma1=1.7, gamma2=4, r0=5.0, eps=0,
 
     
 def wplot_scale(cosmo, wcorrs, gamma1=1.7, gamma2=4, r0=5.0, eps=0,
-                Mmin=-24, Mmax=-12,
-                alpha=[-0.956, -0.196], Mstar=[-21.135, -0.497],
-                phistar=[3.26e-3, -1.08e-3], kcoeffs=[0.0, -0.39, 1.67],
-                plot_sel=0):
+                lf_pars='lf_pars.pkl', Nz_file=None, solid_angle=1, plot_sel=0):
     """Plot w(theta) results for multiple samples with Limber scaling."""
+
+    def be_fit(z, zc, alpha, beta, norm):
+        """Generalised Baugh & Efstathiou (1993, eqn 7) model for N(z)."""
+        return norm * z**alpha * np.exp(-(z/zc)**beta)
+    
+    if Nz_file:
+         # use observed N(z) rather than LF prediction
+         counts_dict = pickle.load(open(Nz_file, 'rb'))
 
     plt.clf()
     fig, axes = plt.subplots(1, 2, sharex=True, sharey=True, num=1)
@@ -834,14 +843,22 @@ def wplot_scale(cosmo, wcorrs, gamma1=1.7, gamma2=4, r0=5.0, eps=0,
     fig.set_size_inches(6, 4)
     fig.subplots_adjust(hspace=0, wspace=0)
     selref = util.SelectionFunction(
-        cosmo, alpha=alpha, Mstar=Mstar, phistar=phistar,
-        mlo=wcorrs[0].mlo, mhi=wcorrs[0].mhi,
-        Mmin=Mmin, Mmax=Mmax, nksamp=0, kcoeffs=kcoeffs)
+        cosmo, lf_pars, mlo=wcorrs[0].mlo, mhi=wcorrs[0].mhi)
+    if Nz_file:
+        # Replace LF-calculated N(z) with smooth fit to observed
+        imag = 0
+        (mlo, mhi, counts, popt) = counts_dict[imag]
+        assert(wcorrs[0].mlo==mlo and wcorrs[0].mhi==mhi)
+        selref._Nz = be_fit(selref._z, *popt)
     for wcorr in wcorrs:
         selfn = util.SelectionFunction(
-            cosmo, alpha=alpha, Mstar=Mstar, phistar=phistar,
-            mlo=wcorr.mlo, mhi=wcorr.mhi, Mmin=Mmin, Mmax=Mmax,
-            nksamp=0, kcoeffs=kcoeffs)
+            cosmo, lf_pars=lf_pars, mlo=wcorr.mlo, mhi=wcorr.mhi)
+        if Nz_file:
+            # Replace LF-calculated N(z) with smooth fit to observed
+            (mlo, mhi, counts, popt) = counts_dict[imag]
+            assert(wcorr.mlo==mlo and wcorr.mhi==mhi)
+            selfn._Nz = be_fit(selfn._z, *popt)
+            imag += 1
         if plot_sel:
             selfn.plot_Nz(ax2)
         dlgt, dlgw = limber.limber_scale(
