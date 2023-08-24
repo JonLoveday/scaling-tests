@@ -81,6 +81,14 @@ def check_mask(mask='WAVES-S_pixelMask.fits'):
                 print(coords, x, y, 'Outside mask')
 
 
+def mangle_test(mask='mask_S.ply', nran=1000, limits=south_limits):
+    pymask = pymangle.Mangle(mask)
+    ra, dec = pymask.genrand_range(nran, *limits)
+    # ra, dec = pymask.genrand(nran)
+    plt.scatter(ra, dec, s=0.1)
+    plt.show()
+
+
 def wcounts_N():
     """Angular pair counts in mag bins."""
     wcounts(infile='WAVES-N_0p2_Z22_GalsAmbig_IvanSFM_withMasking.parquet',
@@ -157,19 +165,19 @@ def wcounts(infile, mask_file, pixel_mask, out_pref, limits,
         sub[sel] = imag
         print(imag, len(t[sel]))
     galcat = wcorr.Cat(ra, dec, sub=sub)
-    galcat.assign_jk(limits, nra, ndec)
+    galcat.assign_jk(limits, nra, ndec, verbose=1)
 
     pymask = pymangle.Mangle(mask_file)
-    ra, dec = pymask.genrand_range(nran, *limits)
+    # genrand_range does not work if limits wrap zero
+    # ra, dec = pymask.genrand_range(nran, *limits)
+    ra, dec = pymask.genrand(nran)
     sel = ((((ra - limits[0]) % 360 <= (limits[1] - limits[0]) % 360) *
             (limits[2] <= dec) * (dec < limits[3]) * (mask(ra, dec) == 0)))
     rancat = wcorr.Cat(ra[sel].astype('float64'), dec[sel].astype('float64'))
-    rancat.assign_jk(limits, nra, ndec)
+    rancat.assign_jk(limits, nra, ndec, verbose=1)
 
     print(len(ra[sel]), 'out of', nran, 'unmasked randoms')
 
-    pdb.set_trace()
-    
     njack = nra*ndec
     for ijack in range(njack+1):
         rcoords = rancat.sample(ijack)

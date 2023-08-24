@@ -76,7 +76,7 @@ class Cat(object):
             for ira in range(nra):
                 ralo = ramin + ira*rastep
                 rahi = ramin + (ira+1)*rastep
-                sel = (((ralo <= self.ra - ralo) % 360 <= (rahi - ralo) % 360) *
+                sel = (((self.ra - ralo) % 360 <= (rahi - ralo) % 360) *
                        (declo <= self.dec) * (self.dec < dechi))
                 self.jack[sel] = jack
                 if verbose:
