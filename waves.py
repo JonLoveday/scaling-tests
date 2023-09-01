@@ -224,7 +224,7 @@ def hists(infile='12244.fits', Mr_lims=[-24, -15],
     plt.show()
 
 
-def w_plot(nmag=7, njack=10, fit_range=[0.01, 1], p0=[0.05, 1.7],
+def w_plot(nmag=7, njack=10, fit_range=[0.01, 5], p0=[0.05, 1.7],
            prefix='wmag_N/', avgcounts=False, Nz_file='Nz.pkl',
            gamma1=1.67, gamma2=3.8, r0=6.0, eps=-2.7):
     """w(theta) from angular pair counts in mag bins.
@@ -321,7 +321,7 @@ def lf(alpha=[-1.26, -0.2], Mstar=[-20.71, -1],
 def Nz(infile='WAVES-N_0p2_Z22_GalsAmbig_CompletePhotoZ.fits',
        solid_angle=solid_angle_north, magbins=np.linspace(15, 22, 8),
        zbins=np.linspace(0.0, 2.0, 41), lf_pars='lf_pars.pkl',
-       interp=0, outfile='Nz.pkl'):
+       interp=0, outfile='NzN.pkl'):
     """Plot observed and predicted N(z) histograms in mag slices."""
 
     def be_fit(z, zc, alpha, beta, norm):
