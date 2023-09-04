@@ -88,7 +88,7 @@ def wcounts(galfile, ranfile, out_path,
     rancat, njack_ran = create_cat(ranfile)
     assert (njack == njack_ran)
 
-    logger = multiprocessing.log_to_stderr()
+    logger = mp.log_to_stderr()
     for iz in range(len(zbins) - 1):
         zlo, zhi = zbins[iz], zbins[iz+1]
         for ijack in range(njack+1):
