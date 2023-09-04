@@ -112,39 +112,14 @@ def wcounts(galfile, ranfile, out_path,
     pool.join()
 
 
-def hists(infile='12244.fits', Mr_lims=[-24, -15],
-          zbins=np.linspace(0, 1, 6)):
-    """Abs mag histograms in redshift bins."""
-
-    t = Table.read(infile)
-    z = t['true_redshift_gal']
-    plt.clf()
-    fig, axes = plt.subplots(5, 1, sharex=True, num=1)
-    fig.set_size_inches(5, 6)
-    fig.subplots_adjust(hspace=0, wspace=0)
-    for iz in range(len(zbins) - 1):
-        sel = (zbins[iz] <= z) * (z < zbins[iz+1])
-        M_r = t['abs_mag_r01'][sel]
-        print(iz, np.percentile(M_r, (5, 50, 95)))
-        ax = axes[iz]
-        ax.semilogy()
-        ax.hist(M_r, bins=np.linspace(*Mr_lims, 37))
-        ax.text(0.05, 0.8, rf'z = {zbins[iz]:3.1f}-{zbins[iz+1]:3.1f}',
-            transform=ax.transAxes)
-    plt.xlabel(r'$M_r$')
-    plt.show()
-
-
-def w_plot(nmag=7, njack=10, fit_range=[0.01, 5], p0=[0.05, 1.7],
-           prefix='wmag_N/', avgcounts=False, Nz_file='Nz.pkl',
-           gamma1=1.67, gamma2=3.8, r0=6.0, eps=-2.7):
-    """w(theta) from angular pair counts in mag bins.
-    Use observed N(z) if Nz_file specified, otherwise use LF prediction."""
+def w_plot(nz=5, njack=10, fit_range=[0.01, 5], p0=[0.05, 1.7],
+           prefix='w_N/', avgcounts=False):
+    """w(theta) from angular pair counts in redshift bins."""
 
     plt.clf()
     ax = plt.subplot(111)
     corr_slices = []
-    for iz in range(nmag):
+    for iz in range(nz):
         corrs = []
         for ijack in range(njack+1):
             infile = f'{prefix}RR_J{ijack}.pkl'
@@ -156,13 +131,13 @@ def w_plot(nmag=7, njack=10, fit_range=[0.01, 5], p0=[0.05, 1.7],
             corrs.append(
                 wcorr.Corr1d(info['Ngal'], info['Nran'],
                              DD_counts, DR_counts, RR_counts,
-                             mlo=info['mlo'], mhi=info['mhi']))
+                             zlo=info['zlo'], zhi=info['zhi']))
         corr = corrs[0]
         corr.err = np.std(np.array([corrs[i].est for i in range(1, njack+1)]), axis=0)
         corr.ic_calc(fit_range, p0, 5)
         corr_slices.append(corr)
         color = next(ax._get_lines.prop_cycler)['color']
-        corr.plot(ax, color=color, label=f"m = [{info['mlo']}, {info['mhi']}]")
+        corr.plot(ax, color=color, label=f"z = [{info['zlo']}, {info['zhi']}]")
         popt, pcov = corr.fit_w(fit_range, p0, ax, color)
         print(popt, pcov)
     plt.loglog()
@@ -170,9 +145,6 @@ def w_plot(nmag=7, njack=10, fit_range=[0.01, 5], p0=[0.05, 1.7],
     plt.xlabel(r'$\theta$ / degrees')
     plt.ylabel(r'$w(\theta)$')
     plt.show()
-
-    wcorr.wplot_scale(cosmo, corr_slices, gamma1=gamma1, gamma2=gamma2,
-                      r0=r0, eps=eps, lf_pars='lf_pars.pkl', Nz_file=Nz_file)
 
 
 def w_plot_pred(nmag=7, njack=10, fit_range=[0.01, 1], p0=[0.05, 1.7],
