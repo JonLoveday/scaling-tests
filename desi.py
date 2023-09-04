@@ -130,8 +130,7 @@ def w_plot(nz=5, njack=10, fit_range=[0.01, 5], p0=[0.05, 1.7],
             (info, DR_counts) = pickle.load(open(infile, 'rb'))
             corrs.append(
                 wcorr.Corr1d(info['Ngal'], info['Nran'],
-                             DD_counts, DR_counts, RR_counts,
-                             zlo=info['zlo'], zhi=info['zhi']))
+                             DD_counts, DR_counts, RR_counts))
         corr = corrs[0]
         corr.err = np.std(np.array([corrs[i].est for i in range(1, njack+1)]), axis=0)
         corr.ic_calc(fit_range, p0, 5)
