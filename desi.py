@@ -113,7 +113,7 @@ def wcounts(galfile, ranfile, out_path,
 
 
 def w_plot(nz=5, njack=10, fit_range=[0.01, 5], p0=[0.05, 1.7],
-           prefix='w_N/', avgcounts=False):
+           prefix='w_N/', avgcounts=False, ic_rmax=0):
     """w(theta) from angular pair counts in redshift bins."""
 
     plt.clf()
@@ -133,10 +133,12 @@ def w_plot(nz=5, njack=10, fit_range=[0.01, 5], p0=[0.05, 1.7],
                              DD_counts, DR_counts, RR_counts))
         corr = corrs[0]
         corr.err = np.std(np.array([corrs[i].est for i in range(1, njack+1)]), axis=0)
-        corr.ic_calc(fit_range, p0, 5)
+        if ic_rmax > 0:
+            corr.ic_calc(fit_range, p0, ic_rmax)
         corr_slices.append(corr)
         color = next(ax._get_lines.prop_cycler)['color']
-        corr.plot(ax, color=color, label=f"z = [{info['zlo']}, {info['zhi']}]")
+        corr.plot(ax, color=color,
+                  label=f"z = [{info['zlo']:2.1f}, {info['zhi']:2.1f}]")
         popt, pcov = corr.fit_w(fit_range, p0, ax, color)
         print(popt, pcov)
     plt.loglog()
