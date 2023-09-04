@@ -72,7 +72,7 @@ def wcounts(galfile, ranfile, out_path,
         sub = np.zeros(len(ra), dtype='int8')
         print('iz  nobj')
         for iz in range(len(zbins) - 1):
-            sel = (zbins[imag] <= z) * (z < zbins[imag+1])
+            sel = (zbins[iz] <= z) * (z < zbins[iz+1])
             sub[sel] = iz
             print(iz, len(z[sel]))
         cat = wcorr.Cat(ra, dec, sub=sub, jack=jack)
@@ -140,14 +140,14 @@ def w_plot(nmag=7, njack=10, fit_range=[0.01, 5], p0=[0.05, 1.7],
     plt.clf()
     ax = plt.subplot(111)
     corr_slices = []
-    for imag in range(nmag):
+    for iz in range(nmag):
         corrs = []
         for ijack in range(njack+1):
             infile = f'{prefix}RR_J{ijack}.pkl'
             (info, RR_counts) = pickle.load(open(infile, 'rb'))
-            infile = f'{prefix}GG_J{ijack}_m{imag}.pkl'
+            infile = f'{prefix}GG_J{ijack}_m{iz}.pkl'
             (info, DD_counts) = pickle.load(open(infile, 'rb'))
-            infile = f'{prefix}GR_J{ijack}_m{imag}.pkl'
+            infile = f'{prefix}GR_J{ijack}_m{iz}.pkl'
             (info, DR_counts) = pickle.load(open(infile, 'rb'))
             corrs.append(
                 wcorr.Corr1d(info['Ngal'], info['Nran'],
@@ -180,14 +180,14 @@ def w_plot_pred(nmag=7, njack=10, fit_range=[0.01, 1], p0=[0.05, 1.7],
     plt.clf()
     ax = plt.subplot(111)
     corr_slices = []
-    for imag in range(nmag):
+    for iz in range(nmag):
         corrs = []
         for ijack in range(njack+1):
             infile = f'{prefix}RR_J{ijack}.pkl'
             (info, RR_counts) = pickle.load(open(infile, 'rb'))
-            infile = f'{prefix}GG_J{ijack}_m{imag}.pkl'
+            infile = f'{prefix}GG_J{ijack}_m{iz}.pkl'
             (info, DD_counts) = pickle.load(open(infile, 'rb'))
-            infile = f'{prefix}GR_J{ijack}_m{imag}.pkl'
+            infile = f'{prefix}GR_J{ijack}_m{iz}.pkl'
             (info, DR_counts) = pickle.load(open(infile, 'rb'))
             corrs.append(
                 wcorr.Corr1d(info['Ngal'], info['Nran'],
@@ -245,16 +245,16 @@ def Nz(infile='WAVES-N_0p2_Z22_GalsAmbig_CompletePhotoZ.fits',
     counts_dict = {'zbins': zbins, 'zcen': zcen}
     plt.clf()
     ax = plt.subplot(111)
-    for imag in range(len(magbins) - 1):
-        mlo, mhi = magbins[imag], magbins[imag+1]
-        sel = (magbins[imag] <= mag) * (mag < magbins[imag+1])
+    for iz in range(len(magbins) - 1):
+        mlo, mhi = magbins[iz], magbins[iz+1]
+        sel = (magbins[iz] <= mag) * (mag < magbins[iz+1])
         color = next(ax._get_lines.prop_cycler)['color']
         counts, edges = np.histogram(z[sel], zbins)
         popt, pcov = scipy.optimize.curve_fit(
             be_fit, zcen, counts, p0=(0.5, 2.0, 1.5, 1e6), ftol=1e-3, xtol=1e-3)
         print(popt)
 
-        counts_dict.update({imag: (mlo, mhi, counts, popt)})
+        counts_dict.update({iz: (mlo, mhi, counts, popt)})
         plt.stairs(counts, edges, color=color, label=f"m = {mlo}, {mhi}]")
         # plt.plot(zp, spline(zp), color=color, ls='-')
         plt.plot(zp, be_fit(zp, *popt), color=color, ls='-')
