@@ -122,11 +122,11 @@ def w_plot(nz=5, njack=10, fit_range=[0.01, 5], p0=[0.05, 1.7],
     for iz in range(nz):
         corrs = []
         for ijack in range(njack+1):
-            infile = f'{prefix}RR_J{ijack}.pkl'
+            infile = f'{prefix}RR_J{ijack}_z{iz}.pkl'
             (info, RR_counts) = pickle.load(open(infile, 'rb'))
-            infile = f'{prefix}GG_J{ijack}_m{iz}.pkl'
+            infile = f'{prefix}GG_J{ijack}_z{iz}.pkl'
             (info, DD_counts) = pickle.load(open(infile, 'rb'))
-            infile = f'{prefix}GR_J{ijack}_m{iz}.pkl'
+            infile = f'{prefix}GR_J{ijack}_z{iz}.pkl'
             (info, DR_counts) = pickle.load(open(infile, 'rb'))
             corrs.append(
                 wcorr.Corr1d(info['Ngal'], info['Nran'],
