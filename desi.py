@@ -34,7 +34,7 @@ h = 1
 Om0 = 0.319
 cosmo = util.CosmoLookup(h, Om0)
 
-
+solid_angle_north = 1
 def wcounts_N():
     """Angular pair counts for DESI north."""
     wcounts(infile='BGS_ANY_N_clustering.dat.fits',
