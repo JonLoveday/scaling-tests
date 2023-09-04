@@ -94,7 +94,7 @@ def wcounts(galfile, ranfile, out_path,
             gcoords = rancat.sample(ijack, sub=iz)
             rcoords = rancat.sample(ijack, sub=iz)
             info = {'Jack': ijack, 'zlo': zlo, 'zhi': zhi,
-                    'Ngal': len(gcoords[0]), 'Ngal': len(rcoords[0]),
+                    'Ngal': len(gcoords[0]), 'Nran': len(rcoords[0]),
                     'bins': bins, 'tcen': tcen}
             outfile = f'{out_path}/RR_J{ijack}_z{iz}.pkl'
             result = pool.apply_async(
