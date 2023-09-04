@@ -37,16 +37,16 @@ cosmo = util.CosmoLookup(h, Om0)
 solid_angle_north = 1
 def wcounts_N():
     """Angular pair counts for DESI north."""
-    wcounts(infile='BGS_ANY_N_clustering.dat.fits',
+    wcounts(galfile='BGS_ANY_N_clustering.dat.fits',
             ranfile='BGS_ANY_N_0_clustering.ran.fits',
-            out_path='/pscratch/sd/l/loveday/DESI/wmag_N/')
+            out_path='/pscratch/sd/l/loveday/DESI/w_N/')
 
     
 def wcounts_S():
     """Angular pair counts in mag bins."""
-    wcounts(infile='BGS_ANY_S_clustering.dat.fits',
+    wcounts(galfile='BGS_ANY_S_clustering.dat.fits',
             ranfile='BGS_ANY_S_0_clustering.ran.fits',
-            out_path='/pscratch/sd/l/loveday/DESI/wmag_S/')
+            out_path='/pscratch/sd/l/loveday/DESI/w_S/')
 
     
 def wcounts(galfile, ranfile, out_path,
