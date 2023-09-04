@@ -96,12 +96,12 @@ def wcounts(galfile, ranfile, out_path,
             info = {'Jack': ijack, 'zlo': zlo, 'zhi': zhi,
                     'Ngal': len(gcoords[0]), 'Ngal': len(rcoords[0]),
                     'bins': bins, 'tcen': tcen}
-            outfile = f'{out_pref}/RR_J{ijack}_z{iz}.pkl'
+            outfile = f'{out_path}/RR_J{ijack}_z{iz}.pkl'
             pool.apply_async(wcorr.wcounts, args=(*rcoords, bins, info, outfile))
-            outfile = f'{out_pref}/GG_J{ijack}_z{iz}.pkl'
+            outfile = f'{out_path}/GG_J{ijack}_z{iz}.pkl'
             pool.apply_async(wcorr.wcounts,
                              args=(*gcoords, bins, info, outfile))
-            outfile = f'{out_pref}/GR_J{ijack}_z{iz}.pkl'
+            outfile = f'{out_path}/GR_J{ijack}_z{iz}.pkl'
             pool.apply_async(wcorr.wcounts,
                              args=(*gcoords, bins, info,  outfile, *rcoords))
     pool.close()
