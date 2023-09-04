@@ -88,7 +88,6 @@ def wcounts(galfile, ranfile, out_path,
     rancat, njack_ran = create_cat(ranfile)
     assert (njack == njack_ran)
 
-    logger = mp.log_to_stderr()
     for iz in range(len(zbins) - 1):
         zlo, zhi = zbins[iz], zbins[iz+1]
         for ijack in range(njack+1):
@@ -98,13 +97,17 @@ def wcounts(galfile, ranfile, out_path,
                     'Ngal': len(gcoords[0]), 'Ngal': len(rcoords[0]),
                     'bins': bins, 'tcen': tcen}
             outfile = f'{out_path}/RR_J{ijack}_z{iz}.pkl'
-            pool.apply_async(wcorr.wcounts, args=(*rcoords, bins, info, outfile))
+            result = pool.apply_async(
+                wcorr.wcounts, args=(*rcoords, bins, info, outfile))
+            print(result.get())
             outfile = f'{out_path}/GG_J{ijack}_z{iz}.pkl'
-            pool.apply_async(wcorr.wcounts,
-                             args=(*gcoords, bins, info, outfile))
+            result = pool.apply_async(
+                wcorr.wcounts, args=(*gcoords, bins, info, outfile))
+            print(result.get())
             outfile = f'{out_path}/GR_J{ijack}_z{iz}.pkl'
-            pool.apply_async(wcorr.wcounts,
+            result = pool.apply_async(wcorr.wcounts,
                              args=(*gcoords, bins, info,  outfile, *rcoords))
+            print(result.get())
     pool.close()
     pool.join()
 
