@@ -91,7 +91,7 @@ def wcounts(galfile, ranfile, out_path,
     for iz in range(len(zbins) - 1):
         zlo, zhi = zbins[iz], zbins[iz+1]
         for ijack in range(njack+1):
-            gcoords = rancat.sample(ijack, sub=iz)
+            gcoords = galcat.sample(ijack, sub=iz)
             rcoords = rancat.sample(ijack, sub=iz)
             info = {'Jack': ijack, 'zlo': zlo, 'zhi': zhi,
                     'Ngal': len(gcoords[0]), 'Nran': len(rcoords[0]),
