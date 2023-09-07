@@ -152,7 +152,7 @@ def wcounts_legacy(galfiles=['sweep-000m005-005p000.fits',
     
     path = '/global/cfs/cdirs/cosmo/data/legacysurvey/dr10/south/randoms/'
     t = Table.read(path + ranfile)
-    jack = np.zeros(len[t], dtype=int32)
+    jack = np.zeros(len(t), dtype=np.int32)
     ijack = 0
     for brick in bricks:
         ijack += 1
