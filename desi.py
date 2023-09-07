@@ -133,10 +133,10 @@ def wcounts_legacy(galfiles=['sweep-000m005-005p000.fits',
         mag_z = 22.5 - 2.5*np.log10(flux_z[good])
         sel = mag_z < magbins[-1]
         t = t[sel]
-        ra = np.hstack(ra, t['RA'])
-        dec = np.hstack(dec, t['DEC'])
-        mag = np.hstack(mag, mag_z[sel])
-        jack = np.hstack(jack, ijack*np.ones(len(t)))
+        ra = np.hstack((ra, t['RA']))
+        dec = np.hstack((dec, t['DEC']))
+        mag = np.hstack((mag, mag_z[sel]))
+        jack = np.hstack((jack, ijack*np.ones(len(t))))
         bricks.append(t['BRICKID'][0])
     njack_gal = ijack
     
