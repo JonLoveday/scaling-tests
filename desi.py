@@ -119,7 +119,7 @@ def wcounts_legacy(galfiles=['sweep-000m005-005p000.fits',
     """Legacy angular auto-pair counts in Z-band magnitude bins."""
 
     path = '/global/cfs/cdirs/cosmo/data/legacysurvey/dr10/south/sweep/10.0/'
-    ra, dec, mag, jack = np.array(()), np.array(()), np.array(()), np.array((), dtype=int32)
+    ra, dec, mag, jack = np.array(()), np.array(()), np.array(()), np.array((), dtype=np.int32)
     ijack = 0
     bricks = []
     for galfile in galfiles:
