@@ -112,7 +112,7 @@ def desi_wcounts(galfile, ranfile, out_path,
 
 def wcounts_legacy(galfiles=['sweep-000m005-005p000.fits',
                              'sweep-000m010-005m005.fits'],
-                   ranfile='randoms-1-0.fits',
+                   ranfile='randoms-south-1-0.fits',
                    out_path='/pscratch/sd/l/loveday/Legacy/w_mag',
                    tmin=0.01, tmax=10, nbins=20,
                    magbins=np.linspace(18, 23, 6)):
