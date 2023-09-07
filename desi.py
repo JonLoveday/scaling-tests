@@ -1,4 +1,4 @@
-# Clustering measurements for DESI EDR
+# Clustering measurements for DESI EDR and Legacy survey, to be run at NERSC
 
 import glob
 import math
@@ -17,8 +17,6 @@ from astropy.wcs import WCS
 from astropy.io import fits
 from astropy import units as u
 import Corrfunc
-# import Corrfunc.mocks
-# from Corrfunc.utils import convert_3d_counts_to_cf
 import pdb
 import pymangle
 
@@ -35,24 +33,24 @@ Om0 = 0.319
 cosmo = util.CosmoLookup(h, Om0)
 
 solid_angle_north = 1
-def wcounts_N():
+def desi_wcounts_N():
     """Angular pair counts for DESI north."""
     wcounts(galfile='BGS_ANY_N_clustering.dat.fits',
             ranfile='BGS_ANY_N_0_clustering.ran.fits',
             out_path='/pscratch/sd/l/loveday/DESI/w_N/')
 
     
-def wcounts_S():
+def desi_wcounts_S():
     """Angular pair counts in mag bins."""
     wcounts(galfile='BGS_ANY_S_clustering.dat.fits',
             ranfile='BGS_ANY_S_0_clustering.ran.fits',
             out_path='/pscratch/sd/l/loveday/DESI/w_S/')
 
     
-def wcounts(galfile, ranfile, out_path,
-            tmin=0.01, tmax=10, nbins=20,
-            zbins=np.linspace(0.0, 0.5, 6)):
-    """Angular pair counts in redshift bins."""
+def desi_wcounts(galfile, ranfile, out_path,
+                 tmin=0.01, tmax=10, nbins=20,
+                 zbins=np.linspace(0.0, 0.5, 6)):
+    """DESI angular auto-pair counts in redshift bins."""
 
     def create_cat(infile):
         """Create catalogue from specified input file."""
@@ -108,6 +106,87 @@ def wcounts(galfile, ranfile, out_path,
             result = pool.apply_async(wcorr.wcounts,
                              args=(*gcoords, bins, info,  outfile, *rcoords))
             print(result.get())
+    pool.close()
+    pool.join()
+
+
+def wcounts_legacy(galfiles=['sweep-000m005-005p000.fits',
+                             'sweep-000m010-005m005.fits'],
+                   ranfile='randoms-1-0.fits',
+                   out_path='/pscratch/sd/l/loveday/Legacy/w_mag',
+                   tmin=0.01, tmax=10, nbins=20,
+                   magbins=np.linspace(18, 23, 6)):
+    """Legacy angular auto-pair counts in Z-band magnitude bins."""
+
+    path = '/global/cfs/cdirs/cosmo/data/legacysurvey/dr10/south/sweep/10.0/'
+    ra, dec, mag, jack = np.zeros(), np.zeros(), np.zeros(), np.zeros()
+    ijack = 0
+    bricks = []
+    for galfile in galfiles:
+        ijack += 1
+        t = Table.read(path + galfile)
+        gal = (t['TYPE'] != 'PSF') * (t['TYPE'] != 'DUP')
+        t = t[gal]
+        flux_z = t['FLUX_Z']/t['MW_TRANSMISSION_Z']
+        good = (flux_z > 0) * (flux_z < 1e6)
+        mag_z = 22.5 - 2.5*np.log10(flux_z[good])
+        sel = mag_z < magbins[-1]
+        t = t[good * sel]
+        ra = np.hstack(ra, t['RA'])
+        dec = np.hstack(dec, t['DEC'])
+        mag = np.hstack(mag, mag_z[sel])
+        jack = np.hstack(jack, ijack*np.ones(len(t)))
+        bricks.append(t['BRICKID'][0])
+    njack_gal = ijack
+    
+    # Divide into magnitude bins
+    sub = np.zeros(len(ra), dtype='int8')
+    print('imag  nobj')
+    for imag in range(len(magbins) - 1):
+        sel = (magbins[imag] <= mag) * (mag < magbins[imag+1])
+        sub[sel] = imag
+        print(imag, len(ra[sel]))
+    galcat = wcorr.Cat(ra, dec, sub=sub, jack=jack)
+    print(galcat.nobj, 'total galaxies in bricks', bricks)
+    
+    path = '/global/cfs/cdirs/cosmo/data/legacysurvey/dr10/south/randoms/'
+    t = Table.read(path + ranfile)
+    jack = np.zeros(len[t], dtype=int32)
+    ijack = 0
+    for brick in bricks:
+        ijack += 1
+        sel = t['BRICKID'] i== brick
+        jack[sel] = ijack
+    njack_ran = ijack
+    assert (njack_gal == njack_ran)
+    sel = jack > 0
+    rancat = wcorr.Cat(t['RA'][sel], t['DEC'][sel], jack=jack[sel])
+    print(rancat.nobj, 'total randoms')
+
+    bins = np.logspace(np.log10(tmin), np.log10(tmax), nbins + 1)
+    tcen = 10**(0.5*np.diff(np.log10(bins)) + np.log10(bins[:-1]))
+    ncpu = mp.cpu_count()
+    pool = mp.Pool(ncpu)
+    print('Using', ncpu, 'CPUs')
+    
+    for ijack in range(njack+1):
+        rcoords = rancat.sample(ijack)
+        info = {'Jack': ijack, 'Nran': len(rcoords[0]), 'bins': bins, 'tcen': tcen}
+        outfile = f'{out_path}RR_J{ijack}.pkl'
+        pool.apply_async(wcorr.wcounts, args=(*rcoords, bins, info, outfile))
+        for imag in range(len(magbins) - 1):
+            print(ijack, imag)
+            mlo, mhi = magbins[imag], magbins[imag+1]
+            gcoords = galcat.sample(ijack, sub=imag)
+            info = {'Jack': ijack, 'mlo': mlo, 'mhi': mhi,
+                    'Ngal': len(gcoords[0]), 'Nran': len(rcoords[0]),
+                                'bins': bins, 'tcen': tcen}
+            outfile = f'{out_path}GG_J{ijack}_m{imag}.pkl'
+            pool.apply_async(wcorr.wcounts,
+                             args=(*gcoords, bins, info, outfile))
+            outfile = f'{out_path}GR_J{ijack}_m{imag}.pkl'
+            pool.apply_async(wcorr.wcounts,
+                             args=(*gcoords, bins, info,  outfile, *rcoords))
     pool.close()
     pool.join()
 
