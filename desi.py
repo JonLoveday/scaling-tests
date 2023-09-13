@@ -110,6 +110,61 @@ def desi_wcounts(galfile, ranfile, out_path,
     pool.join()
 
 
+def legacy_desi(maglim=23, r_radius=2.0, ranfile='randoms-south-1-0.fits',
+                galout='/pscratch/sd/l/loveday/Legacy/legacy_desi.fits',
+                ranout='/pscratch/sd/l/loveday/Legacy/legacy_desi_ran.fits'):
+    """Compile Legacy DR10 data within the 20 DESI EDR rosettes."""
+
+    rosette_coords = [[150.10, 2.182], [179.60, 0.000], [183.10, 0.000],
+                      [189.90, 61.800], 194.75, 28.200], [210.00, 5.000], 
+                      [215.50, 52.500], [217.80, 34.400], [216.30, -0.600], 
+                      [219.80, -0.600], [218.05, 2.430], [242.75, 54.980],
+                      [241.05, 43.450], [245.88, 43.450], [252.50, 34.500],
+                      [269.73, 66.020], [194.75, 24.700], [212.80, -0.600],
+                      [269.73, 62.520], [236.10, 43.450]]
+    
+    path = '/global/cfs/cdirs/cosmo/data/legacysurvey/dr10/south/sweep/10.0/'
+    sweeps = glob.glob('sweep*.fits', root_dir=path)
+    ra, dec, mag = np.array(()), np.array(()), np.array(())
+    for sweep in sweeps:
+        t = Table.read(path + sweep)
+        gal = (t['TYPE'] != 'PSF') * (t['TYPE'] != 'DUP')
+        t = t[gal]
+        flux_z = t['FLUX_Z']/t['MW_TRANSMISSION_Z']
+        good = (flux_z > 0) * (flux_z < 1e6)
+        t = t[good]
+        mag_z = 22.5 - 2.5*np.log10(flux_z[good])
+        sel = mag_z < maglim
+        t = t[sel]
+        mag_z = mag_z[sel]
+        gcoord = SkyCoord(t['RA'], t['DEC'])
+        sel = np.zeros(len(t), dtype=bool)
+        for ir in range(len(rosettes)):
+            rcoord = SkyCoord(rosettes[ir])
+            sel += = rcoord.separation(gcoord) < r_radius
+        ra = np.hstack((ra, t['RA'][sel]))
+        dec = np.hstack((dec, t['DEC'][sel]))
+        mag = np.hstack((mag, mag_z[sel]))
+        print(sweep, len(mag_z[sel]))
+    t = Table((ra, dec, mag), names=('RA', 'DEC', 'Z_MAG'))
+    t.write(galout)
+    print(len(ra), 'total galaxies')
+    
+    # Now the randoms
+    ra, dec = np.array(()), np.array(())
+    path = '/global/cfs/cdirs/cosmo/data/legacysurvey/dr10/south/randoms/'
+    t = Table.read(path + ranfile)
+    sel = np.zeros(len(t), dtype=bool)
+    for ir in range(len(rosettes)):
+        rcoord = SkyCoord(rosettes[ir])
+        sel += = rcoord.separation(gcoord) < r_radius
+    ra = np.hstack((ra, t['RA'][sel]))
+    dec = np.hstack((dec, t['DEC'][sel]))
+    t = Table((ra, dec), names=('RA', 'DEC'))
+    t.write(ranout)
+    print(len(ra), 'total randoms')
+
+
 def wcounts_legacy(galfiles=['sweep-000m005-005p000.fits',
                              'sweep-000m010-005m005.fits'],
                    ranfile='randoms-south-1-0.fits',
