@@ -4,7 +4,11 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=128
 #SBATCH --constraint=cpu
+#SBATCH --mail-type=begin,end,fail
+#SBATCH --mail-user=j.loveday@sussex.ac.uk
 
+module load conda
+conda activate jon
 srun python <<EOF
 import desi
 desi.legacy_wcounts()
