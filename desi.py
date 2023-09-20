@@ -103,7 +103,7 @@ def desi_wcounts(galfile, ranfile, out_path,
     pool.join()
 
 
-def legacy_wcounts(root_dir='/pscratch/sd/l/loveday/Legacy/',
+def legacy_wcounts(path='/pscratch/sd/l/loveday/Legacy/',
                    galfile='legacy_desi.fits',
                    ranfile='legacy_desi_ran.fits',
                    out_path='w_mag/',
