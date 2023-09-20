@@ -118,7 +118,7 @@ def legacy_wcounts(path='/pscratch/sd/l/loveday/Legacy/',
     sub = np.zeros(len(jack_gal), dtype='int8')
     print('imag  nobj')
     for imag in range(len(magbins) - 1):
-        sel = (magbins[imag] <= t['MAG']) * (t['MAG'] < magbins[imag+1])
+        sel = (magbins[imag] <= t['Z_MAG']) * (t['Z_MAG'] < magbins[imag+1])
         sub[sel] = imag
         print(imag, len(jack_gal[sel]))
     galcat = wcorr.Cat(t['RA'], t['DEC'], sub=sub, jack=jack_gal)
