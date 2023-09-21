@@ -116,7 +116,7 @@ def legacy_wcounts(path='/pscratch/sd/l/loveday/Legacy/',
     sel = t['Z_MAG'] < magbins[-1]
     t = t[sel]
 
-    njack_gal, jack_gal = jack_from_rosette(t['ROSETTE'])
+    njack, jack_gal = jack_from_rosette(t['ROSETTE'])
     
     # Divide into magnitude bins
     sub = np.zeros(len(jack_gal), dtype='int8')
@@ -130,7 +130,7 @@ def legacy_wcounts(path='/pscratch/sd/l/loveday/Legacy/',
     
     t = Table.read(path + ranfile)
     njack_ran, jack_ran = jack_from_rosette(t['ROSETTE'])
-    assert (njack_gal == njack_ran)
+    assert (njack == njack_ran)
     rancat = wcorr.Cat(t['RA'], t['DEC'], jack=jack_ran)
     print(rancat.nobj, 'total randoms')
 
