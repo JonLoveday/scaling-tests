@@ -137,7 +137,7 @@ def legacy_wcounts(path='/pscratch/sd/l/loveday/Legacy/',
     bins = np.logspace(np.log10(tmin), np.log10(tmax), nbins + 1)
     tcen = 10**(0.5*np.diff(np.log10(bins)) + np.log10(bins[:-1]))
     pool = mp.Pool(ncores)
-    outpath = path + 'w_mag/'
+    out_path = path + 'w_mag/'
 
     for ijack in range(njack+1):
         rcoords = rancat.sample(ijack)
