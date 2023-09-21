@@ -138,10 +138,6 @@ def legacy_wcounts(path='/pscratch/sd/l/loveday/Legacy/',
     tcen = 10**(0.5*np.diff(np.log10(bins)) + np.log10(bins[:-1]))
     pool = mp.Pool(ncores)
 
-    galcat, njack = create_cat(galfile)
-    rancat, njack_ran = create_cat(ranfile)
-    assert (njack == njack_ran)
-
     for iz in range(len(zbins) - 1):
         zlo, zhi = zbins[iz], zbins[iz+1]
         for ijack in range(njack+1):
