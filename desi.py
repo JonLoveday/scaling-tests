@@ -138,26 +138,24 @@ def legacy_wcounts(path='/pscratch/sd/l/loveday/Legacy/',
     tcen = 10**(0.5*np.diff(np.log10(bins)) + np.log10(bins[:-1]))
     pool = mp.Pool(ncores)
 
-    for iz in range(len(zbins) - 1):
-        zlo, zhi = zbins[iz], zbins[iz+1]
-        for ijack in range(njack+1):
-            gcoords = galcat.sample(ijack, sub=iz)
-            rcoords = rancat.sample(ijack, sub=iz)
-            info = {'Jack': ijack, 'zlo': zlo, 'zhi': zhi,
+    for ijack in range(njack+1):
+        rcoords = rancat.sample(ijack)
+        info = {'Jack': ijack, 'Nran': len(rcoords[0]), 'bins': bins, 'tcen': tcen}
+        outfile = f'{out_path}RR_J{ijack}.pkl'
+        pool.apply_async(wcorr.wcounts, args=(*rcoords, bins, info, outfile))
+        for imag in range(len(magbins) - 1):
+            print(ijack, imag)
+            mlo, mhi = magbins[imag], magbins[imag+1]
+            gcoords = galcat.sample(ijack, sub=imag)
+            info = {'Jack': ijack, 'mlo': mlo, 'mhi': mhi,
                     'Ngal': len(gcoords[0]), 'Nran': len(rcoords[0]),
                     'bins': bins, 'tcen': tcen}
-            outfile = f'{out_path}/RR_J{ijack}_z{iz}.pkl'
-            result = pool.apply_async(
-                wcorr.wcounts, args=(*rcoords, bins, info, outfile))
-            print(result.get())
-            outfile = f'{out_path}/GG_J{ijack}_z{iz}.pkl'
-            result = pool.apply_async(
-                wcorr.wcounts, args=(*gcoords, bins, info, outfile))
-            print(result.get())
-            outfile = f'{out_path}/GR_J{ijack}_z{iz}.pkl'
-            result = pool.apply_async(wcorr.wcounts,
+            outfile = f'{out_path}GG_J{ijack}_m{imag}.pkl'
+            pool.apply_async(wcorr.wcounts,
+                             args=(*gcoords, bins, info, outfile))
+            outfile = f'{out_path}GR_J{ijack}_m{imag}.pkl'
+            pool.apply_async(wcorr.wcounts,
                              args=(*gcoords, bins, info,  outfile, *rcoords))
-            print(result.get())
     pool.close()
     pool.join()
 
