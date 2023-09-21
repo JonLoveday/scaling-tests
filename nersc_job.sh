@@ -7,9 +7,9 @@
 #SBATCH --mail-type=begin,end,fail
 #SBATCH --mail-user=j.loveday@sussex.ac.uk
 
-module load conda
-conda activate jon
-srun python <<EOF
+#module load conda
+#conda activate jon
+python <<EOF
 import desi
 desi.legacy_wcounts()
 EOF
