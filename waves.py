@@ -91,8 +91,9 @@ def mangle_test(mask='mask_S.ply', nran=1000, limits=south_limits):
 
 def wcounts_N():
     """Angular pair counts in mag bins."""
-    wcounts(infile='WAVES-N_0p2_Z22_GalsAmbig_IvanSFM_withMasking.parquet',
-            mask_file='mask_N.ply', out_pref='wmag_N/', limits=north_limits)
+    wcounts(infile='WAVES-N_0p2_Z22_GalsAmbig_CompletePhotoZ.fits',
+            mask_file='mask_N.ply', pixel_mask='WAVES-N_pixelMask.fits',
+            out_pref='wmag_N/', limits=north_limits)
 
     
 def wcounts_S():

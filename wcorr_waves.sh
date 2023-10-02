@@ -24,5 +24,5 @@ echo $PATH
 cd /research/astro/gama/loveday/Data/4MOST/WAVES/target_cats_2022_nov_25
 python <<EOF
 import waves
-waves.wcounts_S()
+waves.wcounts_N()
 EOF
