@@ -14,6 +14,7 @@ export OMP_PROC_BIND=spread
 
 #run the application:
 #srun -n 64 -c 4 --cpu_bind=cores python <<EOF
+conda activate jon
 python <<EOF
 import desi
 desi.desi_legacy_xcounts()
