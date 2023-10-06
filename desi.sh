@@ -13,7 +13,8 @@ export OMP_PLACES=threads
 export OMP_PROC_BIND=spread
 
 #run the application:
-srun -n 64 -c 4 --cpu_bind=cores python <<EOF
+#srun -n 64 -c 4 --cpu_bind=cores python <<EOF
+python <<EOF
 import desi
-desi.wcounts_S()
+desi.desi_legacy_xcounts()
 EOF
