@@ -161,7 +161,8 @@ def legacy_wcounts(path='/pscratch/sd/l/loveday/Legacy/',
     pool.join()
 
 
-def desi_legacy_xcounts(desi_galfile, desi_ranfile,
+def desi_legacy_xcounts(desi_galfile='BGS_ANY_S_clustering.dat.fits',
+                        desi_ranfile='BGS_ANY_S_0_clustering.ran.fits',
                         path='/pscratch/sd/l/loveday/Legacy/',
                         legacy_file='legacy_desi.fits', out_path='bgs_x_l',
                         tmin=0.01, tmax=10, nbins=20,
