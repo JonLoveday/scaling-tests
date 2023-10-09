@@ -191,8 +191,8 @@ def desi_legacy_xcounts(desi_galfile='BGS_ANY_S_clustering.dat.fits',
     tcen = 10**(0.5*np.diff(np.log10(bins)) + np.log10(bins[:-1]))
     pool = mp.Pool(ncores)
 
-    dgalcat, njack = create_cat(desi_galfile)
-    drancat, njack_ran = create_cat(desi_ranfile)
+    dgalcat, njack = create_desi_cat(desi_galfile)
+    drancat, njack_ran = create_desi_cat(desi_ranfile)
     assert (njack == njack_ran)
 
     # Read Legacy sources
