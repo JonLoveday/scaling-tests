@@ -209,7 +209,7 @@ def desi_legacy_xcounts(desi_galfile='BGS_ANY_S_clustering.dat.fits',
         sub[sel] = imag
         print(imag, len(t[sel]))
     lgalcat = wcorr.Cat(t['RA'], t['DEC'], sub=sub)
-    print(galcat.nobj, 'total Legacy galaxies')
+    print(lgalcat.nobj, 'total Legacy galaxies')
 
     # for iz in range(len(zbins) - 1):
     #     zlo, zhi = zbins[iz], zbins[iz+1]
