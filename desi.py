@@ -201,17 +201,14 @@ def desi_legacy_xcounts(desi_galfile='BGS_ANY_S_clustering.dat.fits',
     sel = (t['LTYPE'] != 'PSF') * (t['Z_MAG'] < magbins[-1])
     t = t[sel]
 
-    njack_leg, jack_gal = jack_from_rosette(t['ROSETTE'])
-    assert (njack == njack_leg)
-    
     # Divide into magnitude bins
-    sub = np.zeros(len(jack_gal), dtype='int8')
+    sub = np.zeros(len(t), dtype='int8')
     print('imag  nobj')
     for imag in range(len(magbins) - 1):
         sel = (magbins[imag] <= t['Z_MAG']) * (t['Z_MAG'] < magbins[imag+1])
         sub[sel] = imag
-        print(imag, len(jack_gal[sel]))
-    lgalcat = wcorr.Cat(t['RA'], t['DEC'], sub=sub, jack=jack_gal)
+        print(imag, len(t[sel]))
+    lgalcat = wcorr.Cat(t['RA'], t['DEC'], sub=sub)
     print(galcat.nobj, 'total Legacy galaxies')
 
     # for iz in range(len(zbins) - 1):
