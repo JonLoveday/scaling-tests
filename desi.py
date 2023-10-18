@@ -235,9 +235,9 @@ def desi_legacy_xcounts(desi_galfile='BGS_ANY_S_clustering.dat.fits',
     # pool.close()
     # pool.join()
 
+    lcoords = lgalcat.sample()
     for ijack in range(njack+1):
         gcoords = dgalcat.sample(ijack)
-        lcoords = lgalcat.sample(ijack)
         rcoords = drancat.sample(ijack)
         info = {'Jack': ijack,
                 'Ngal': len(gcoords[0]), 'Nran': len(rcoords[0]),
