@@ -5,7 +5,7 @@
 #SBATCH -J desi
 #SBATCH --mail-user=j.loveday@sussex.ac.uk
 #SBATCH --mail-type=ALL
-#SBATCH -t 00:30:00
+#SBATCH -t 24:00:00
 
 #OpenMP settings:
 export OMP_NUM_THREADS=1
