@@ -110,7 +110,8 @@ class Cat(object):
 class Corr1d(object):
     """1d clustering estimate."""
 
-    def __init__(self, ngal=0, nran=0, dd=0, dr=0, rr=0, mlo=0, mhi=0):
+    def __init__(self, ngal=0, nran=0, dd=0, dr=0, rr=0, d1d2=0, d2r1=0,
+                 mlo=0, mhi=0, est='ls'):
 
         self.mlo = mlo
         self.mhi = mhi
@@ -128,9 +129,12 @@ class Corr1d(object):
             self.dd = dd['npairs']
             self.dr = dr['npairs']
             self.rr = rr['npairs']
-            self.est = np.nan_to_num(Corrfunc.utils.convert_3d_counts_to_cf(
-                ngal, ngal, nran, nran, dd, dr, dr, rr))
-            
+            if est == 'ls':
+                self.est = np.nan_to_num(Corrfunc.utils.convert_3d_counts_to_cf(
+                    ngal, ngal, nran, nran, dd, dr, dr, rr))
+            if est == 'phx':
+                self.est = nran/ngal * d1d2/d2r1 - 1
+                    
     def average(self, corrs, avgcounts=False):
         """Average over realisations or subsamples.  Set avgcounts=True
         to average counts rather than averaging corr fn estimate."""
