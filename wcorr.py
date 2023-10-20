@@ -133,7 +133,7 @@ class Corr1d(object):
                 self.est = np.nan_to_num(Corrfunc.utils.convert_3d_counts_to_cf(
                     ngal, ngal, nran, nran, dd, dr, dr, rr))
             if est == 'phx':
-                self.est = nran/ngal * d1d2/d2r1 - 1
+                self.est = nran/ngal * d1d2['npairs']/d2r1['npairs'] - 1
                     
     def average(self, corrs, avgcounts=False):
         """Average over realisations or subsamples.  Set avgcounts=True
