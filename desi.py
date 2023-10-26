@@ -165,7 +165,7 @@ def desi_legacy_xcounts(desi_galfile='BGS_ANY_S_clustering.dat.fits',
                         desi_ranfile='BGS_ANY_S_0_clustering.ran.fits',
                         path='/pscratch/sd/l/loveday/Legacy/10.1/',
                         legacy_file='legacy_desi.fits',
-                        out_path=path+'bgs_x_l',
+                        out_path='/pscratch/sd/l/loveday/Legacy/10.1/bgs_x_l',
                         tmin=0.01, tmax=10, nbins=20,
                         zbins=np.linspace(0.0, 0.5, 6),
                         magbins=np.linspace(18, 23, 6)):
