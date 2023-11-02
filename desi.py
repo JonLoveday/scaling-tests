@@ -164,11 +164,12 @@ def legacy_wcounts(path='/pscratch/sd/l/loveday/Legacy/',
 def desi_legacy_xcounts(desi_galfile='BGS_ANY_S_clustering.dat.fits',
                         desi_ranfile='BGS_ANY_S_0_clustering.ran.fits',
                         path='/pscratch/sd/l/loveday/Legacy/10.1/',
-                        legacy_file='legacy_desi.fits',
+                        legacy_galfile='legacy.fits',
+                        legacy_ranfile='legacy_ran.fits',
                         out_path='/pscratch/sd/l/loveday/Legacy/10.1/bgs_x_l',
                         tmin=0.01, tmax=10, nbins=20,
                         zbins=np.linspace(0.0, 0.5, 6),
-                        magbins=np.linspace(18, 23, 6)):
+                        magbins=np.linspace(18, 20, 4)):
     """DESI-Legacy angular cross-pair counts in redshift/magnitude bins."""
 
     def create_desi_cat(infile):
@@ -198,7 +199,7 @@ def desi_legacy_xcounts(desi_galfile='BGS_ANY_S_clustering.dat.fits',
     assert (njack == njack_ran)
 
     # Read Legacy sources
-    t = Table.read(path + legacy_file)
+    t = Table.read(path + legacy_galfile)
     sel = (t['LTYPE'] != 'PSF') * (t['Z_MAG'] < magbins[-1])
     t = t[sel]
 
@@ -211,6 +212,11 @@ def desi_legacy_xcounts(desi_galfile='BGS_ANY_S_clustering.dat.fits',
         print(imag, len(t[sel]))
     lgalcat = wcorr.Cat(t['RA'], t['DEC'], sub=sub)
     print(lgalcat.nobj, 'total Legacy galaxies')
+
+    # Read Legacy randoms
+    t = Table.read(path + legacy_ranfile)
+    lrancat = wcorr.Cat(t['RA'], t['DEC'])
+    print(lrancat.nobj, 'Legacy randoms')
 
     # for iz in range(len(zbins) - 1):
     #     zlo, zhi = zbins[iz], zbins[iz+1]
@@ -235,32 +241,30 @@ def desi_legacy_xcounts(desi_galfile='BGS_ANY_S_clustering.dat.fits',
     # pool.close()
     # pool.join()
 
-    lcoords = lgalcat.sample()
+    lgcoords = lgalcat.sample()
+    lrcoords = lrancat.sample()
     for ijack in range(njack+1):
-        gcoords = dgalcat.sample(ijack)
-        rcoords = drancat.sample(ijack)
+        dgcoords = dgalcat.sample(ijack)
+        drcoords = drancat.sample(ijack)
         info = {'Jack': ijack,
-                'Ngal': len(gcoords[0]), 'Nran': len(rcoords[0]),
+                'Ngal1': len(dgcoords[0]), 'Ngal2': len(lgcoords[0]),
+                'Nran1': len(drcoords[0]), 'Nran2': len(lrcoords[0]),
                 'bins': bins, 'tcen': tcen}
-        outfile = f'{out_path}/RR_J{ijack}.pkl'
+        outfile = f'{out_path}/R1R2_J{ijack}.pkl'
         result = pool.apply_async(
-            wcorr.wcounts, args=(*rcoords, bins, info, outfile))
+            wcorr.wxcounts, args=(*drcoords, *lrcoords, bins, info, outfile))
         print(result.get())
-        outfile = f'{out_path}/DD_J{ijack}.pkl'
+        outfile = f'{out_path}/D1D2_J{ijack}.pkl'
         result = pool.apply_async(
-            wcorr.wcounts, args=(*gcoords, bins, info, outfile))
+            wcorr.wxcounts, args=(*dgcoords, *lgcoords, bins, info, outfile))
         print(result.get())
-        outfile = f'{out_path}/DR_J{ijack}.pkl'
-        result = pool.apply_async(wcorr.wcounts,
-                                  args=(*gcoords, bins, info,  outfile, *rcoords))
+        outfile = f'{out_path}/D1R2_J{ijack}.pkl'
+        result = pool.apply_async(
+            wcorr.wxcounts, args=(*dgcoords, *lrcoords, bins, info,  outfile))
         print(result.get())
-        outfile = f'{out_path}/DL_J{ijack}.pkl'
-        result = pool.apply_async(wcorr.wcounts,
-                                  args=(*gcoords, bins, info,  outfile, *lcoords))
-        print(result.get())
-        outfile = f'{out_path}/LR_J{ijack}.pkl'
-        result = pool.apply_async(wcorr.wcounts,
-                                  args=(*lcoords, bins, info,  outfile, *rcoords))
+        outfile = f'{out_path}/D2R1_J{ijack}.pkl'
+        result = pool.apply_async(
+            wcorr.wxcounts, args=(*lgcoords, *drcoords, bins, info,  outfile))
         print(result.get())
     pool.close()
     pool.join()

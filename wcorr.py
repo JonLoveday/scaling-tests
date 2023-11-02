@@ -430,6 +430,18 @@ def wcounts(ra, dec, bins, info, outfile, ra2=None, dec2=None, nthreads=1,
     pickle.dump((info, counts), open(outfile, 'wb'))
 
 
+def wxcounts(ra, dec, ra2, dec2, bins, info, outfile, nthreads=1,
+             output_thetaavg=False):
+    """w(theta) cross counts."""
+
+    autocorr = 0
+    counts = Corrfunc.mocks.DDtheta_mocks(
+        autocorr, nthreads, bins, ra, dec,
+        RA2=ra2, DEC2=dec2, output_thetaavg=output_thetaavg)
+
+    pickle.dump((info, counts), open(outfile, 'wb'))
+
+
 def xir_counts(x, y, z, bins, info, outfile, x2=None, y2=None, z2=None,
                nthreads=1, output_ravg=False):
     """xi(r) counts."""
