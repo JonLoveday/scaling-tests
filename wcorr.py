@@ -175,13 +175,14 @@ class Corr1d(object):
         self.sep = corrs[0].sep
         self.sep_av = corrs[0].sep
         self.d1d2 = np.sum(np.array([corrs[i].d1d2 for i in range(nest)]), axis=0)
-        self.dr = np.sum(np.array([corrs[i].dr for i in range(nest)]), axis=0)
-        self.rr = np.sum(np.array([corrs[i].rr for i in range(nest)]), axis=0)
+        self.d1r2 = np.sum(np.array([corrs[i].d1r2 for i in range(nest)]), axis=0)
+        self.d2r1 = np.sum(np.array([corrs[i].d2r1 for i in range(nest)]), axis=0)
+        self.r1r2 = np.sum(np.array([corrs[i].r1r2 for i in range(nest)]), axis=0)
         self.err = np.nan_to_num(np.std(np.array([corrs[i].est for i in range(nest)]), axis=0))
         if avgcounts:
             self.est = np.nan_to_num(Corrfunc.utils.convert_3d_counts_to_cf(
-                self.ngal, self.ngal, self.nran, self.nran,
-                self.d1d2, self.dr, self.dr, self.rr))
+                self.nd1, self.nd2, self.nr1, self.nr2,
+                self.d1d2, self.d1r2, self.d2r1, self.r1r2))
         else:
             self.est = np.mean(np.array([corrs[i].est for i in range(nest)]), axis=0)
 
@@ -206,7 +207,7 @@ class Corr1d(object):
         for i in range(niter):
             popt, pcov = self.fit_w(fit_range, p0)
             xi_mod[pos] = power_law(self.sep[pos], *popt)
-            self.ic = (self.rr * xi_mod).sum() / (self.rr).sum()
+            self.ic = (self.r1r2 * xi_mod).sum() / (self.r1r2).sum()
             print(i, *popt)
 
     def est_corr(self):
@@ -237,7 +238,7 @@ class Corr1d(object):
             return A * theta**(1-gamma)
 
         sel = ((self.sep >= fit_range[0]) * (self.sep < fit_range[1]) *
-               np.isfinite(self.est) * (self.err > 0) * (self.rr > 10))
+               np.isfinite(self.est) * (self.err > 0) * (self.r1r2 > 10))
         popt, pcov = scipy.optimize.curve_fit(
             power_law, self.sep[sel], self.est_corr()[sel], p0=p0,
             sigma=self.err[sel], ftol=ftol, xtol=xtol)
@@ -255,7 +256,7 @@ class Corr1d(object):
             return (r0/r)**gamma
 
         sel = ((self.sep >= fit_range[0]) * (self.sep < fit_range[1]) *
-               np.isfinite(self.est) * (self.err > 0) * (self.rr > 10))
+               np.isfinite(self.est) * (self.err > 0) * (self.r1r2 > 10))
         popt, pcov = scipy.optimize.curve_fit(
             power_law, self.sep[sel], self.est[sel], p0=p0,
             sigma=self.err[sel], ftol=ftol, xtol=xtol)
