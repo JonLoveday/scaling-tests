@@ -110,7 +110,7 @@ class Cat(object):
 class Corr1d(object):
     """1d clustering estimate."""
 
-    def __init__(self, ngal=0, nran=0, dd=0, dr=0, rr=0, d1d2=0, d2r1=0,
+    def __init__old(self, ngal=0, nran=0, dd=0, dr=0, rr=0, d1d2=0, d2r1=0,
                  mlo=0, mhi=0, est='ls'):
 
         self.mlo = mlo
@@ -132,6 +132,34 @@ class Corr1d(object):
             if est == 'ls':
                 self.est = np.nan_to_num(Corrfunc.utils.convert_3d_counts_to_cf(
                     ngal, ngal, nran, nran, dd, dr, dr, rr))
+            if est == 'phx':
+                self.est = nran/ngal * d1d2['npairs']/d2r1['npairs'] - 1
+                    
+    def __init__(self, nd1=0, nd2=0, nr1=0, nr2=0, d1d2=0, d1r2=0, d2r1=0,
+                 r1r2=0, mlo=0, mhi=0, estimator='LS'):
+
+        self.mlo = mlo
+        self.mhi = mhi
+        self.ic = 0
+        if nd1 > 0:
+            self.nd1 = nd1
+            self.nd2 = nd2
+            self.nr1 = nr1
+            self.nr2 = nr2
+            try:
+                self.lgsep = 0.5*(np.log10(dd['thetamin']) + np.log10(dd['thetamax']))
+                self.sep = 10**self.lgsep
+                self.sep_av = dd['thetaavg']
+            except ValueError:
+                self.sep = 10**(0.5*(np.log10(dd['rmin']) + np.log10(dd['rmax'])))
+                self.sep_av = dd['ravg']
+            self.d1d2 = d1d2['npairs']
+            self.d1r2 = d1r2['npairs']
+            self.d2r1 = d2r1['npairs']
+            self.r1r2 = r1r2['npairs']
+            if est == 'ls':
+                self.est = np.nan_to_num(Corrfunc.utils.convert_3d_counts_to_cf(
+                    nd1, nd2, nr1, nr2, d1d2, d1r2, d2r1, r1r2, estimator)
             if est == 'phx':
                 self.est = nran/ngal * d1d2['npairs']/d2r1['npairs'] - 1
                     
