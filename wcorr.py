@@ -157,10 +157,10 @@ class Corr1d(object):
             self.d1r2 = d1r2['npairs']
             self.d2r1 = d2r1['npairs']
             self.r1r2 = r1r2['npairs']
-            if est == 'ls':
+            if estimator == 'ls':
                 self.est = np.nan_to_num(Corrfunc.utils.convert_3d_counts_to_cf(
                     nd1, nd2, nr1, nr2, d1d2, d1r2, d2r1, r1r2, estimator))
-            if est == 'phx':
+            if estimator == 'phx':
                 self.est = nran/ngal * d1d2['npairs']/d2r1['npairs'] - 1
                     
     def average(self, corrs, avgcounts=False):
