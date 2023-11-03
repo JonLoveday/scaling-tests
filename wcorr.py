@@ -147,12 +147,12 @@ class Corr1d(object):
             self.nr1 = nr1
             self.nr2 = nr2
             try:
-                self.lgsep = 0.5*(np.log10(dd['thetamin']) + np.log10(dd['thetamax']))
+                self.lgsep = 0.5*(np.log10(d1d2['thetamin']) + np.log10(d1d2['thetamax']))
                 self.sep = 10**self.lgsep
-                self.sep_av = dd['thetaavg']
+                self.sep_av = d1d2['thetaavg']
             except ValueError:
-                self.sep = 10**(0.5*(np.log10(dd['rmin']) + np.log10(dd['rmax'])))
-                self.sep_av = dd['ravg']
+                self.sep = 10**(0.5*(np.log10(d1d2['rmin']) + np.log10(d1d2['rmax'])))
+                self.sep_av = d1d2['ravg']
             self.d1d2 = d1d2['npairs']
             self.d1r2 = d1r2['npairs']
             self.d2r1 = d2r1['npairs']
@@ -174,14 +174,14 @@ class Corr1d(object):
         self.nran = np.sum(np.array([corrs[i].nran for i in range(nest)]))
         self.sep = corrs[0].sep
         self.sep_av = corrs[0].sep
-        self.dd = np.sum(np.array([corrs[i].dd for i in range(nest)]), axis=0)
+        self.d1d2 = np.sum(np.array([corrs[i].d1d2 for i in range(nest)]), axis=0)
         self.dr = np.sum(np.array([corrs[i].dr for i in range(nest)]), axis=0)
         self.rr = np.sum(np.array([corrs[i].rr for i in range(nest)]), axis=0)
         self.err = np.nan_to_num(np.std(np.array([corrs[i].est for i in range(nest)]), axis=0))
         if avgcounts:
             self.est = np.nan_to_num(Corrfunc.utils.convert_3d_counts_to_cf(
                 self.ngal, self.ngal, self.nran, self.nran,
-                self.dd, self.dr, self.dr, self.rr))
+                self.d1d2, self.dr, self.dr, self.rr))
         else:
             self.est = np.mean(np.array([corrs[i].est for i in range(nest)]), axis=0)
 
