@@ -25,7 +25,7 @@ import calc_kcor
 import util
 import wcorr
 
-ncores = psutil.cpu_count(logical=False)
+ncores = min(64, psutil.cpu_count(logical=False))
 print(f'{ncores=}')
 
 ln10 = math.log(10)
@@ -189,11 +189,11 @@ def desi_legacy_xcounts(desi_galfile='BGS_ANY_S_clustering.dat.fits',
         cat = wcorr.Cat(ra, dec, sub=sub, jack=jack)
         return cat, njack
 
-    # Read DESI galaxies plus randoms
     bins = np.logspace(np.log10(tmin), np.log10(tmax), nbins + 1)
     tcen = 10**(0.5*np.diff(np.log10(bins)) + np.log10(bins[:-1]))
     pool = mp.Pool(ncores)
 
+    # Read DESI galaxies plus randoms
     dgalcat, njack = create_desi_cat(desi_galfile)
     drancat, njack_ran = create_desi_cat(desi_ranfile)
     assert (njack == njack_ran)
