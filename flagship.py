@@ -45,9 +45,9 @@ solid_angle = 400 * (math.pi/180)**2
 kcoeffs = [0, -0.642, 0.229]
 kpoly = Polynomial(kcoeffs, domain=[0, 2], window=[0, 2])
 
-def wcounts(infile='14516.fits', mask_file='mask.ply', out_pref='w_mag/',
+def wcounts(infile='15189.fits', mask_file='mask.ply', out_pref='w_mag_r/',
             limits=(180, 200, 0, 20), nran=100000, nra=4, ndec=4,
-            tmin=0.01, tmax=10, nbins=20,
+            tmin=0.01, tmax=10, nbins=20, band='r',
             magbins=np.linspace(15, 20, 6), plots=1):
     """Angular pair counts in mag bins."""
 
@@ -58,9 +58,9 @@ def wcounts(infile='14516.fits', mask_file='mask.ply', out_pref='w_mag/',
     print('Using', ncpu, 'CPUs')
     
     t = Table.read(infile)
-    sel = t['hmag'] < magbins[-1]
+    sel = t[band+'mag'] < magbins[-1]
     t = t[sel]
-    ra, dec, mag = t['ra_gal'].astype('float64'), t['dec_gal'].astype('float64'), t['hmag']
+    ra, dec, mag = t['ra_gal'].astype('float64'), t['dec_gal'].astype('float64'), t[band+'mag']
     mmean = np.zeros(len(magbins)-1)
     sub = np.zeros(len(ra), dtype='int8')
     if plots:
@@ -72,15 +72,15 @@ def wcounts(infile='14516.fits', mask_file='mask.ply', out_pref='w_mag/',
         sel = (magbins[imag] <= mag) * (mag < magbins[imag+1])
         sub[sel] = imag
         mmean[imag] = np.mean(mag[sel])
-        print(imag, mmean[imag], np.percentile(t['habs'][sel], (5, 50, 95)))
+        print(imag, mmean[imag], np.percentile(t[band+'abs'][sel], (5, 50, 95)))
         if plots:
             ax = axes[imag]
-            ax.hist(t['habs'][sel], bins=np.linspace(-24, -15, 19))
+            ax.hist(t[band+'abs'][sel], bins=np.linspace(-24, -15, 19))
             ax.text(0.7, 0.8, rf'm = {magbins[imag]:3.1f}-{magbins[imag+1]:3.1f}',
                     transform=ax.transAxes)
 
     if plots:
-        plt.xlabel(r'$M_r$')
+        plt.xlabel(rf'$M_{band}$')
         plt.show()
     galcat = wcorr.Cat(ra, dec, sub=sub)
     galcat.assign_jk(limits, nra, ndec)
