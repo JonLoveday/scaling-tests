@@ -134,7 +134,7 @@ def xir_counts(infile='15189.fits', mask_file='mask.ply', band='r', mlim=20,
         print('Using', ncpu, 'CPUs')
     
     t = Table.read(infile)
-    sel = t[band+'mag'] < maglim
+    sel = t[band+'mag'] < mlim
     t = t[sel]
     ra, dec, Mag = t['ra_gal'], t['dec_gal'], t[band+'abs']
     redshift = t['true_redshift_gal']
