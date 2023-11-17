@@ -118,11 +118,11 @@ def wcounts(infile='15189.fits', mask_file='mask.ply', out_pref='w_mag_r/',
     pool.join()
 
 
-def xir_counts(infile='14516.fits', mask_file='mask.ply',
-         Mbins=np.linspace(-26, -12, 8),
-         zbins=np.linspace(0, 2, 11), limits=(180, 200, 0, 20),
-         ranfac=1, nra=3, ndec=3, rbins=np.logspace(-1, 2, 16),
-         randist='shuffle', out_pref='xir_z/', multi=True):
+def xir_counts(infile='15189.fits', mask_file='mask.ply', band='r', mlim=20,
+               Mbins=np.linspace(-24, -14, 6),
+               zbins=np.linspace(0, 1, 6), limits=(180, 200, 0, 20),
+               ranfac=1, nra=3, ndec=3, rbins=np.logspace(-1, 2, 16),
+               randist='shuffle', out_pref='xir_M_z/', multi=True):
     """Real-space pair counts in magnitude and redshift bins."""
 
     nM = len(Mbins) - 1
@@ -134,7 +134,9 @@ def xir_counts(infile='14516.fits', mask_file='mask.ply',
         print('Using', ncpu, 'CPUs')
     
     t = Table.read(infile)
-    ra, dec, Mag = t['ra_gal'], t['dec_gal'], t['habs']
+    sel = t[band+'mag'] < maglim
+    t = t[sel]
+    ra, dec, Mag = t['ra_gal'], t['dec_gal'], t[band+'abs']
     redshift = t['true_redshift_gal']
     r = cosmo.dc(redshift)
 
