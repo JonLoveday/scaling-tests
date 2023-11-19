@@ -118,7 +118,7 @@ def wcounts(infile='15189.fits', mask_file='mask.ply', out_pref='w_mag_r/',
     pool.join()
 
 
-def xir_counts(infile='15189.fits', mask_file='mask.ply', band='r', mlim=20,
+def xir_counts(infile='15189.fits', mask_file='mask.ply', band='r', mlim=22,
                Mbins=np.linspace(-24, -14, 6),
                zbins=np.linspace(0, 2, 11), limits=(180, 200, 0, 20),
                ranfac=1, nra=3, ndec=3, rbins=np.logspace(-1, 2, 16),
