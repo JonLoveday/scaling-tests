@@ -48,7 +48,7 @@ kpoly = Polynomial(kcoeffs, domain=[0, 2], window=[0, 2])
 def wcounts(infile='15189.fits', mask_file='mask.ply', out_pref='w_mag_r/',
             limits=(180, 200, 0, 20), nran=100000, nra=4, ndec=4,
             tmin=0.01, tmax=10, nbins=20, band='r',
-            magbins=np.linspace(15, 20, 6), plots=1):
+            magbins=np.linspace(17, 22, 6), plots=1):
     """Angular pair counts in mag bins."""
 
     bins = np.logspace(np.log10(tmin), np.log10(tmax), nbins + 1)
@@ -120,7 +120,7 @@ def wcounts(infile='15189.fits', mask_file='mask.ply', out_pref='w_mag_r/',
 
 def xir_counts(infile='15189.fits', mask_file='mask.ply', band='r', mlim=20,
                Mbins=np.linspace(-24, -14, 6),
-               zbins=np.linspace(0, 1, 6), limits=(180, 200, 0, 20),
+               zbins=np.linspace(0, 2, 11), limits=(180, 200, 0, 20),
                ranfac=1, nra=3, ndec=3, rbins=np.logspace(-1, 2, 16),
                randist='shuffle', out_pref='xir_M_z/', multi=True):
     """Real-space pair counts in magnitude and redshift bins."""
@@ -211,7 +211,7 @@ def hists(infile='14516.fits', Mbins=np.linspace(-26, -16, 41),
     plt.show()
 
 
-def w_plot(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7], prefix='w_mag/',
+def w_plot(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7], prefix='w_mag_r/',
            avgcounts=False, gamma1=1.67, gamma2=3.8, r0=6.0, eps=-2.7,
            alpha=[-0.956, -0.196], Mstar=[-21.135, -0.497],
            phistar=[3.26e-3, -1.08e-3], kcoeffs=[0.0, -0.39, 1.67], ic_corr=0):
@@ -230,8 +230,8 @@ def w_plot(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7], prefix='w_mag/
             infile = f'{prefix}GR_J{ijack}_m{imag}.pkl'
             (info, DR_counts) = pickle.load(open(infile, 'rb'))
             corrs.append(
-                wcorr.Corr1d(info['Ngal'], info['Nran'],
-                             DD_counts, DR_counts, RR_counts,
+                wcorr.Corr1d(info['Ngal'], info['Ngal'], info['Nran'], info['Nran'],
+                             DD_counts, DR_counts, DR_counts, RR_counts,
                              mlo=info['mlo'], mhi=info['mhi']))
         corr = corrs[0]
         corr.err = np.std(np.array([corrs[i].est for i in range(1, njack+1)]), axis=0)
@@ -248,9 +248,9 @@ def w_plot(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7], prefix='w_mag/
     plt.ylabel(r'$w(\theta)$')
     plt.show()
 
-    wcorr.wplot_scale(cosmo, corr_slices, gamma1=gamma1, gamma2=gamma2,
-                      r0=r0, eps=eps, alpha=alpha, Mstar=Mstar,
-                      phistar=phistar, kcoeffs=kcoeffs)
+    # wcorr.wplot_scale(cosmo, corr_slices, gamma1=gamma1, gamma2=gamma2,
+    #                   r0=r0, eps=eps, alpha=alpha, Mstar=Mstar,
+    #                   phistar=phistar, kcoeffs=kcoeffs)
 
 # def w_plot_pred(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7], prefix='w_mag/',
 #                 avgcounts=False, lf_pars='lf_pars.pkl', xi_pars='xi_pars.pkl',
@@ -541,9 +541,9 @@ def gam_fun(p, M, z):
 #     return p[0] + p[1]*z + p[2]*(M+20) + p[3]*np.log10(1+z)*(M+20)**2
     return np.polynomial.polynomial.polyval2d(M+20, z, p)
 
-def xir_M_z_plot(nm=7, nz=10, njack=9, fit_range=[0.1, 20], p0=[5, 1.7],
-                 prefix='xir_z/', avgcounts=False, Ngal_min=1000,
-                 outfile='xi_pars.pkl'):
+def xir_M_z_plot(nm=5, nz=5, njack=9, fit_range=[0.1, 20], p0=[5, 1.7],
+                 prefix='xir_M_z/', avgcounts=False, Ngal_min=1000,
+                 outfile='xi_pars.pkl', xiscale=0):
     """xi(r) from pair counts in Magnitude and redshift bins."""
 
     # def xi_ev(z, A, eps):
@@ -575,11 +575,15 @@ def xir_M_z_plot(nm=7, nz=10, njack=9, fit_range=[0.1, 20], p0=[5, 1.7],
 
     plt.ion()
     plt.clf()
-    fig, axes = plt.subplots(2, nz//2, sharex=True, sharey=True, num=1)
+    fig, axes = plt.subplots(2, 3, sharex=True, sharey=True, num=1)
     fig.set_size_inches(12, 6)
     fig.subplots_adjust(hspace=0, wspace=0)
-    axes[0, 0].set_ylabel(r'$r^2 \xi(r)$')
-    axes[1, 0].set_ylabel(r'$r^2 \xi(r)$')
+    if xiscale:
+        axes[0, 0].set_ylabel(r'$r^2 \xi(r)$')
+        axes[1, 0].set_ylabel(r'$r^2 \xi(r)$')
+    else:
+        axes[0, 0].set_ylabel(r'$\xi(r)$')
+        axes[1, 0].set_ylabel(r'$\xi(r)$')
     axes[1, nz//4].set_xlabel(r'$r$ [Mpc/h]')
     corr_slices = []
     Mmean, zmean, r0, r0_err, gamma, gamma_err = np.zeros((nm, nz)), np.zeros((nm, nz)), np.zeros((nm, nz)), np.zeros((nm, nz)), np.zeros((nm, nz)), np.zeros((nm, nz))
@@ -601,16 +605,23 @@ def xir_M_z_plot(nm=7, nz=10, njack=9, fit_range=[0.1, 20], p0=[5, 1.7],
                     infile = f'{prefix}RR_j{ijack}_z{iz}_M{im}.pkl'
                     (_, RR_counts) = pickle.load(open(infile, 'rb'))
                     corrs.append(
-                        wcorr.Corr1d(info['Ngal'], info['Nran'],
-                                     DD_counts, DR_counts, RR_counts))
+                        wcorr.Corr1d(
+                            info['Ngal'], info['Ngal'], info['Nran'], info['Nran'],
+                            DD_counts, DR_counts, DR_counts, RR_counts))
                 if info['Ngal'] > Ngal_min:
                     corr = corrs[0]
                     corr.err = np.std(np.array([corrs[i].est for i in range(1, njack+1)]), axis=0)
-                    popt, pcov = corr.fit_xi(fit_range, p0, ax, color,
+                    if xiscale:
+                        popt, pcov = corr.fit_xi(fit_range, p0, ax, color,
                                              plot_scale=corr.sep**2)
-                    ax.errorbar(corr.sep, corr.sep**2*corr.est,
-                                corr.sep**2*corr.err, color=color, fmt='o',
-                                label=rf"M = [{info['Mlo']:3.1f}, {info['Mhi']:3.1f}]")
+                        ax.errorbar(corr.sep, corr.sep**2*corr.est,
+                                    corr.sep**2*corr.err, color=color, fmt='o',
+                                    label=rf"M = [{info['Mlo']:3.1f}, {info['Mhi']:3.1f}]")
+                    else:
+                        popt, pcov = corr.fit_xi(fit_range, p0, ax, color)
+                        ax.errorbar(corr.sep, corr.est,
+                                    corr.err, color=color, fmt='o',
+                                    label=rf"M = [{info['Mlo']:3.1f}, {info['Mhi']:3.1f}]")
                     # corr.plot(ax, color=color,
                     #           label=rf"M = [{info['Mlo']:3.1f}, {info['Mhi']:3.1f}], $r_0 = {popt[0]:3.2f} \pm {pcov[0][0]**0.5:3.2f}$, $\gamma = {popt[1]:3.2f} \pm {pcov[1][1]**0.5:3.2f}$")
 
@@ -622,8 +633,12 @@ def xir_M_z_plot(nm=7, nz=10, njack=9, fit_range=[0.1, 20], p0=[5, 1.7],
                                                 Mmean[im, iz], zmean[im, iz])
                         gammam = xi_dict['gam_fun'](xi_dict['gam_pars'],
                                                     Mmean[im, iz], zmean[im, iz])
-                        ax.plot(corr.sep, corr.sep**2*power_law(corr.sep, r0m, gammam), '--',
-                                color=color)
+                        if xiscale:
+                            ax.plot(corr.sep, corr.sep**2*power_law(
+                                corr.sep, r0m, gammam), '--', color=color)
+                        else:
+                            ax.plot(corr.sep, power_law(
+                                corr.sep, r0m, gammam), '--', color=color)
                     except IndexError:
                         pass
                     
@@ -640,10 +655,11 @@ def xir_M_z_plot(nm=7, nz=10, njack=9, fit_range=[0.1, 20], p0=[5, 1.7],
                 print(info['zlo'], info['zhi'], info['Mlo'], info['Mhi'], ' no data')
 
         zlo[iz], zhi[iz] = info['zlo'], info['zhi']
+        ax.legend()
         ax.text(0.2, 0.9, rf"z = [{info['zlo']:3.1f}, {info['zhi']:3.1f}]",
                 transform=ax.transAxes)
+    plt.ylim(0.10, 1000)
     plt.loglog()
-    ax.legend()
     plt.show()
 
     # Mask out arrays for ill-defined (M,z) bins

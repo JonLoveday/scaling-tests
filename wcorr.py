@@ -261,9 +261,12 @@ class Corr1d(object):
             power_law, self.sep[sel], self.est[sel], p0=p0,
             sigma=self.err[sel], ftol=ftol, xtol=xtol)
         if ax:
-            ax.plot(self.sep[sel], plot_scale[sel]*power_law(self.sep[sel], *popt),
-                    color=color)
-
+            try:
+                ax.plot(self.sep[sel], plot_scale[sel]*power_law(self.sep[sel], *popt),
+                        color=color)
+            except TypeError:
+                ax.plot(self.sep[sel], power_law(self.sep[sel], *popt),
+                        color=color)
         return popt, pcov
 
     def interp(self, r, jack=0, log=False):
