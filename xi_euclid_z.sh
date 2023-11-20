@@ -20,7 +20,7 @@
 #
 #$ -q smp.q
 #$ -pe openmp 16
-#$ -l m_mem_free=4G
+#$ -l m_mem_free=2G
 module load GSL
 cd /research/astro/gama/loveday/Data/euclid
 python <<EOF
