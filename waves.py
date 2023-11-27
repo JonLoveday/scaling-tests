@@ -104,7 +104,7 @@ def wcounts_class():
         for TC_class in ('gal', 'star'):
             for BC_class in ('amb', 'gal', 'star'):
                 infile = root+f'{field}_TC_{TC_class}_B_{BC_class}.fits'
-                out_dir = 'wmag_{NS}_TC_{TC_class}_B_{BC_class}/'
+                out_dir = f'wmag_{NS}_TC_{TC_class}_B_{BC_class}/'
                 Path(out_dir).mkdir(parents=True, exist_ok=True)
                 wcounts(infile=infile, 
                         mask_file=f'mask_{NS}.ply',
