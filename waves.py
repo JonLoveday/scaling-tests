@@ -6,6 +6,7 @@ import multiprocessing as mp
 import numpy as np
 from numpy.polynomial import Polynomial
 from numpy.random import default_rng
+from pathlib import Path
 import pickle
 import matplotlib.pyplot as plt
 import scipy.optimize
@@ -89,6 +90,29 @@ def mangle_test(mask='mask_S.ply', nran=1000, limits=south_limits):
     plt.show()
 
 
+def wcounts_class():
+    """Angular pair counts for various source classifications."""
+    root = '/research/astro/gama/bb345/1-4MOST/1-Data/1-TC_star_gal/Nov23/waves_wide_TC_Nov23f'
+    magbins=np.linspace(16, 21.2, 2)
+    for field in (1, 2):
+        if field == 1:
+            NS = 'N'
+            limits=north_limits
+        if field == 2:
+            NS = 'S'
+            limits=south_limits
+        for TC_class in ('gal', 'star'):
+            for BC_class in ('amb', 'gal', 'star'):
+                infile = root+f'{field}_TC_{TC_class}_B_{BC_class}.fits'
+                out_dir = 'wmag_{NS}_TC_{TC_class}_B_{BC_class}/'
+                Path(out_dir).mkdir(parents=True, exist_ok=True)
+                wcounts(infile=infile, 
+                        mask_file=f'mask_{NS}.ply',
+                        pixel_mask=f'WAVES-{NS}_pixelMask.fits',
+                        out_pref=out_dir,
+                        limits=limits, magbins=magbins)
+
+    
 def wcounts_N():
     """Angular pair counts in mag bins."""
     wcounts(infile='WAVES-N_0p2_Z22_GalsAmbig_CompletePhotoZ.fits',

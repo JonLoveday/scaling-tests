@@ -186,13 +186,20 @@ class Corr1d(object):
         else:
             self.est = np.mean(np.array([corrs[i].est for i in range(nest)]), axis=0)
 
-    def ic_calc_old(self, gamma, r0, ic_rmax):
+    def ic_calc_xi(self, fit_range, p0=[5, 1.7], ic_rmax=50, niter=3):
         """Returns estimated integral constraint for power law xi(r)
         truncated at ic_rmax."""
+
+        def power_law(r, r0, gamma):
+            """Power law xi(r) = (r0/r)**gamma."""
+            return (r0/r)**gamma
+
         xi_mod = np.zeros(len(self.sep))
         pos = (self.sep > 0) * (self.sep < ic_rmax)
-        xi_mod[pos] = (self.sep[pos]/r0)**-gamma
-        self.ic = (self.ranpairs * xi_mod).sum() / (self.ranpairs).sum()
+        for i in range(niter):
+            popt, pcov = self.fit_xi(fit_range, p0)
+            xi_mod[pos] = power_law(self.sep[pos], *popt)
+            self.ic = (self.r1r2 * xi_mod).sum() / (self.r1r2).sum()
 
     def ic_calc(self, fit_range, p0=[0.05, 1.7], ic_rmax=10, niter=3):
         """Returns estimated integral constraint for power law xi(r)
@@ -258,7 +265,7 @@ class Corr1d(object):
         sel = ((self.sep >= fit_range[0]) * (self.sep < fit_range[1]) *
                np.isfinite(self.est) * (self.err > 0) * (self.r1r2 > 10))
         popt, pcov = scipy.optimize.curve_fit(
-            power_law, self.sep[sel], self.est[sel], p0=p0,
+            power_law, self.sep[sel], self.est_corr()[sel], p0=p0,
             sigma=self.err[sel], ftol=ftol, xtol=xtol)
         if ax:
             try:
