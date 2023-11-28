@@ -17,7 +17,7 @@
 #$ -jc test.long
 #$ -q smp.q
 #$ -pe openmp 16
-#$ -l m_mem_free=16G
+#$ -l m_mem_free=2G
 conda deactivate
 conda activate jon
 echo $PATH
