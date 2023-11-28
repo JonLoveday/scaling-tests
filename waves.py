@@ -210,13 +210,13 @@ def wcounts(infile, mask_file, pixel_mask, out_pref, limits,
         outfile = f'{out_pref}RR_J{ijack}.pkl'
         pool.apply_async(wcorr.wcounts, args=(*rcoords, bins, info, outfile))
         for imag in range(len(magbins) - 1):
-            print(ijack, imag)
             mlo, mhi = magbins[imag], magbins[imag+1]
             gcoords = galcat.sample(ijack, sub=imag)
             info = {'Jack': ijack, 'mlo': mlo, 'mhi': mhi,
                     'Ngal': len(gcoords[0]), 'Nran': len(rcoords[0]),
                                 'bins': bins, 'tcen': tcen}
             outfile = f'{out_pref}GG_J{ijack}_m{imag}.pkl'
+            print(ijack, imag, len(gcoords[0]), len(rcoords[0]), outfile)
             pool.apply_async(wcorr.wcounts,
                              args=(*gcoords, bins, info, outfile))
             outfile = f'{out_pref}GR_J{ijack}_m{imag}.pkl'
@@ -247,6 +247,44 @@ def hists(infile='12244.fits', Mr_lims=[-24, -15],
             transform=ax.transAxes)
     plt.xlabel(r'$M_r$')
     plt.show()
+
+
+def w_plot_class(nmag=1, njack=10, fit_range=[0.01, 5], p0=[0.05, 1.7],
+           avgcounts=False):
+    """w(theta) for different source classes"""
+
+    for (num, NS) in zip((1, 2), 'NS'):
+        plt.clf()
+        fig, axes = plt.subplots(2, 3, sharex=True, sharey=True, num=num)
+        for (row, TC_class) in zip((0, 1), ('gal', 'star')):
+            for (col, BC_class) in zip((0, 1, 2), ('amb', 'gal', 'star')):
+                ax = axes[row, col]
+                prefix = f'wmag_{NS}_TC_{TC_class}_B_{BC_class}/'
+                for imag in range(nmag):
+                    corrs = []
+                    for ijack in range(njack+1):
+                        infile = f'{prefix}RR_J{ijack}.pkl'
+                        (info, RR_counts) = pickle.load(open(infile, 'rb'))
+                        infile = f'{prefix}GG_J{ijack}_m{imag}.pkl'
+                        (info, DD_counts) = pickle.load(open(infile, 'rb'))
+                        infile = f'{prefix}GR_J{ijack}_m{imag}.pkl'
+                        (info, DR_counts) = pickle.load(open(infile, 'rb'))
+                        corrs.append(
+                            wcorr.Corr1d(info['Ngal'], info['Nran'],
+                                         DD_counts, DR_counts, RR_counts,
+                                         mlo=info['mlo'], mhi=info['mhi']))
+                    corr = corrs[0]
+                    corr.err = np.std(np.array([corrs[i].est for i in range(1, njack+1)]), axis=0)
+                    corr.ic_calc(fit_range, p0, 5)
+                    color = next(ax._get_lines.prop_cycler)['color']
+                    corr.plot(ax, color=color, label=f"m = [{info['mlo']}, {info['mhi']}]")
+                    popt, pcov = corr.fit_w(fit_range, p0, ax, color)
+                    print(popt, pcov)
+        plt.loglog()
+        plt.legend()
+        plt.xlabel(r'$\theta$ / degrees')
+        plt.ylabel(r'$w(\theta)$')
+        plt.show()
 
 
 def w_plot(nmag=7, njack=10, fit_range=[0.01, 5], p0=[0.05, 1.7],
