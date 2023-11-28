@@ -133,6 +133,9 @@ def wcounts(infile, mask_file, pixel_mask, out_pref, limits,
             magbins=np.linspace(15, 22, 8)):
     """Angular pair counts in mag bins."""
 
+    def error_callback(error):
+        print(error, flush=True)
+        
     def mask(ra, dec):
         """Returns mask value for each coordinate or -1 if outside mask."""
         
@@ -208,7 +211,8 @@ def wcounts(infile, mask_file, pixel_mask, out_pref, limits,
         rcoords = rancat.sample(ijack)
         info = {'Jack': ijack, 'Nran': len(rcoords[0]), 'bins': bins, 'tcen': tcen}
         outfile = f'{out_pref}RR_J{ijack}.pkl'
-        pool.apply_async(wcorr.wcounts, args=(*rcoords, bins, info, outfile))
+        pool.apply_async(wcorr.wcounts, args=(*rcoords, bins, info, outfile),
+                         error_callback=error_callback)
         for imag in range(len(magbins) - 1):
             mlo, mhi = magbins[imag], magbins[imag+1]
             gcoords = galcat.sample(ijack, sub=imag)
@@ -218,10 +222,12 @@ def wcounts(infile, mask_file, pixel_mask, out_pref, limits,
             outfile = f'{out_pref}GG_J{ijack}_m{imag}.pkl'
             print(ijack, imag, len(gcoords[0]), len(rcoords[0]), outfile)
             pool.apply_async(wcorr.wcounts,
-                             args=(*gcoords, bins, info, outfile))
+                             args=(*gcoords, bins, info, outfile),
+                             error_callback=error_callback)
             outfile = f'{out_pref}GR_J{ijack}_m{imag}.pkl'
             pool.apply_async(wcorr.wcounts,
-                             args=(*gcoords, bins, info,  outfile, *rcoords))
+                             args=(*gcoords, bins, info,  outfile, *rcoords),
+                             error_callback=error_callback)
     pool.close()
     pool.join()
 
