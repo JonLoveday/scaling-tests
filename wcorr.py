@@ -467,7 +467,7 @@ def wcounts(ra, dec, bins, info, outfile, ra2=None, dec2=None, nthreads=1,
         RA2=ra2, DEC2=dec2, output_thetaavg=output_thetaavg)
 
     pickle.dump((info, counts), open(outfile, 'wb'))
-
+    print('Written ', outfile)
 
 def wxcounts(ra, dec, ra2, dec2, bins, info, outfile, nthreads=1,
              output_thetaavg=False):
