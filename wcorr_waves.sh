@@ -18,11 +18,12 @@
 #$ -q smp.q
 #$ -pe openmp 16
 #$ -l m_mem_free=2G
-conda deactivate
-conda activate jon
+#conda deactivate
+#conda activate jon
 echo $PATH
 cd /research/astro/gama/loveday/Data/4MOST/WAVES/target_cats_2022_nov_25
 python <<EOF
+from Corrfunc._countpairs_mocks import countpairs_theta_mocks
 import waves
 waves.wcounts_class()
 EOF
