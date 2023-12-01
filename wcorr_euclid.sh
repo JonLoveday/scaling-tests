@@ -16,7 +16,7 @@
 # Job class (test = 8 hours, test.long = 1 week)
 #$ -jc test.long
 #$ -q smp.q
-#$ -pe openmp 16
+#$ -pe openmp 8
 #$ -l m_mem_free=4G
 module load GSL
 cd /research/astro/gama/loveday/Data/euclid
