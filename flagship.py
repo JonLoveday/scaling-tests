@@ -47,6 +47,7 @@ if band == 'h':
     kcoeffs = [0, -0.642, 0.229]
     magbins = np.linspace(15, 20, 6)
     Mbins = np.linspace(-26, -16, 6)
+    Mbins_lf = np.linspace(-26, -16, 41)
     mlim = 25
     infile = '14516.fits'
 if band == 'r':
@@ -54,18 +55,21 @@ if band == 'r':
     kcoeffs = [0, 0.4756, 0.734]
     magbins = np.linspace(17, 22, 6)
     Mbins = np.linspace(-24, -14, 6)
+    Mbins_lf = np.linspace(-24, -14, 41)
     mlim = magbins[-1]
     infile = '15189.fits'
 kpoly = Polynomial(kcoeffs, domain=[0, 2], window=[0, 2])
-w_prefix = f'w_mag_{band}'
-
+w_prefix = f'w_mag_{band}/'
+Nz_file = f'Nz_{band}.pkl'
+lf_file = f'lf_{band}.pkl'
+xi_file = f'xi_{band}.pkl'
 
 def wcounts(mask_file='mask.ply',
             limits=(180, 200, 0, 20), nran=100000, nra=4, ndec=4,
-            tmin=0.01, tmax=10, nbins=20, plots=1):
+            tmin=0.01, tmax=10, nbins=20, plots=1, mag_offset=0):
     """Angular pair counts in mag bins."""
 
-    out_pref = f'w_mag_{band}/'
+    out_pref = f'w_mag_{band}_dm{mag_offset}/'
     bins = np.logspace(np.log10(tmin), np.log10(tmax), nbins + 1)
     tcen = 10**(0.5*np.diff(np.log10(bins)) + np.log10(bins[:-1]))
     ncpu = mp.cpu_count()
@@ -73,9 +77,9 @@ def wcounts(mask_file='mask.ply',
     print('Using', ncpu, 'CPUs')
     
     t = Table.read(infile)
-    sel = t[band+'mag'] < magbins[-1]
+    sel = t[band+'mag'] + mag_offset < magbins[-1]
     t = t[sel]
-    ra, dec, mag = t['ra_gal'].astype('float64'), t['dec_gal'].astype('float64'), t[band+'mag']
+    ra, dec, mag = t['ra_gal'].astype('float64'), t['dec_gal'].astype('float64'), t[band+'mag'] + mag_offset
     mmean = np.zeros(len(magbins)-1)
     sub = np.zeros(len(ra), dtype='int8')
     if plots:
@@ -237,18 +241,18 @@ def w_plot(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7],
     for imag in range(nmag):
         corrs = []
         for ijack in range(njack+1):
-            infile = f'{prefix}RR_J{ijack}.pkl'
+            infile = f'{w_prefix}RR_J{ijack}.pkl'
             (info, RR_counts) = pickle.load(open(infile, 'rb'))
-            infile = f'{prefix}GG_J{ijack}_m{imag}.pkl'
+            infile = f'{w_prefix}GG_J{ijack}_m{imag}.pkl'
             (info, DD_counts) = pickle.load(open(infile, 'rb'))
-            infile = f'{prefix}GR_J{ijack}_m{imag}.pkl'
+            infile = f'{w_prefix}GR_J{ijack}_m{imag}.pkl'
             (info, DR_counts) = pickle.load(open(infile, 'rb'))
             corrs.append(
                 wcorr.Corr1d(info['Ngal'], info['Ngal'], info['Nran'], info['Nran'],
                              DD_counts, DR_counts, DR_counts, RR_counts,
                              mlo=info['mlo'], mhi=info['mhi']))
         corr = corrs[0]
-        corr.err = np.std(np.array([corrs[i].est for i in range(1, njack+1)]), axis=0)
+        corr.err = (njack-1)*np.std(np.array([corrs[i].est for i in range(1, njack+1)]), axis=0)
         if ic_corr:
             corr.ic_calc(fit_range, p0, 5)
         corr_slices.append(corr)
@@ -293,7 +297,7 @@ def w_plot(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7],
 #                              DD_counts, DR_counts, RR_counts,
 #                              mlo=info['mlo'], mhi=info['mhi']))
 #         corr = corrs[0]
-#         corr.err = np.std(np.array([corrs[i].est for i in range(1, njack+1)]), axis=0)
+#         corr.err = (njack-1)*np.std(np.array([corrs[i].est for i in range(1, njack+1)]), axis=0)
 #         if ic_corr:
 #             corr.ic_calc(fit_range, p0, 5)
 #         corr_slices.append(corr)
@@ -326,9 +330,10 @@ def w_plot(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7],
 
 
 def w_plot_pred(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7],
-                avgcounts=False, lf_pars='lf_pars.pkl',
-                Nz_file='Nz.pkl', xi_pars='xi_pars.pkl',
-                ic_corr=0,  pltfile='integrand_plots.pdf'):
+                avgcounts=False, lf_pars=lf_file,
+                Nz_file=Nz_file, xi_pars=xi_file,
+                ic_corr=0,  w_pred_file=f'w_pred_{band}.pkl',
+                pltfile='integrand_plots.pdf'):
     """Plot observed and predicted w(theta) in mag bins.
     Use observed N(z) if Nz_file specified, otherwise use LF prediction."""
 
@@ -341,7 +346,7 @@ def w_plot_pred(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7],
          # use observed N(z) rather than LF prediction
          counts_dict = pickle.load(open(Nz_file, 'rb'))
 
-         plt.ioff()
+    plt.ioff()
     if pltfile:
         pdf = matplotlib.backends.backend_pdf.PdfPages(pltfile)
     else:
@@ -349,21 +354,24 @@ def w_plot_pred(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7],
     fig = plt.figure()
     ax = plt.subplot(111)
     corr_slices = []
+    w_pred = {}
+    chisq = 0
+    nu = 0
     for imag in range(nmag):
         corrs = []
         for ijack in range(njack+1):
-            infile = f'{prefix}RR_J{ijack}.pkl'
+            infile = f'{w_prefix}RR_J{ijack}.pkl'
             (info, RR_counts) = pickle.load(open(infile, 'rb'))
-            infile = f'{prefix}GG_J{ijack}_m{imag}.pkl'
+            infile = f'{w_prefix}GG_J{ijack}_m{imag}.pkl'
             (info, DD_counts) = pickle.load(open(infile, 'rb'))
-            infile = f'{prefix}GR_J{ijack}_m{imag}.pkl'
+            infile = f'{w_prefix}GR_J{ijack}_m{imag}.pkl'
             (info, DR_counts) = pickle.load(open(infile, 'rb'))
             corrs.append(
                 wcorr.Corr1d(info['Ngal'], info['Ngal'], info['Nran'], info['Nran'],
                              DD_counts, DR_counts, DR_counts, RR_counts,
                              mlo=info['mlo'], mhi=info['mhi']))
         corr = corrs[0]
-        corr.err = np.std(np.array([corrs[i].est for i in range(1, njack+1)]), axis=0)
+        corr.err = (njack-1)*np.std(np.array([corrs[i].est for i in range(1, njack+1)]), axis=0)
         if ic_corr:
             corr.ic_calc(fit_range, p0, 5)
         corr_slices.append(corr)
@@ -386,12 +394,18 @@ def w_plot_pred(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7],
             plot_den = 0
             w.append(wp)
         ax.plot(corr.sep, w, color=color)
+        w_pred.update({imag: w})
+        chisq += np.sum(((corr.est - w)/corr.err)**2)
+        nu += len(w)
+
         # popt, pcov = corr.fit_w(fit_range, p0, ax, color)
         # print(popt, pcov)
 
+    pickle.dump(w_pred, open(w_pred_file, 'wb'))
     if pdf:
         pdf.close()
     plt.loglog()
+    plt.text(0.1, 0.1, rf'$\chi^2 = {chisq:4.1f}$', transform=ax.transAxes)
     plt.legend()
     plt.xlabel(r'$\theta$ / degrees')
     plt.ylabel(r'$w(\theta)$')
@@ -399,8 +413,8 @@ def w_plot_pred(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7],
     plt.close(fig)
 
 
-def Nz(zbins=np.linspace(0.0, 2.0, 41), lf_pars='lf_pars.pkl',
-       interp=1, outfile='Nz.pkl'):
+def Nz(zbins=np.linspace(0.0, 2.0, 41), lf_pars=lf_file,
+       interp=1, outfile=Nz_file):
     """Plot observed and predicted N(z) histograms in mag slices."""
 
     def be_fit(z, zc, alpha, beta, norm):
@@ -434,11 +448,11 @@ def Nz(zbins=np.linspace(0.0, 2.0, 41), lf_pars='lf_pars.pkl',
         plt.stairs(counts, edges, color=color, label=f"m = {mlo}, {mhi}]")
         # plt.plot(zp, spline(zp), color=color, ls='-')
         plt.plot(zp, be_fit(zp, *popt), color=color, ls='-')
-        # selfn = util.SelectionFunction(
-        #     cosmo, lf_pars=lf_pars, 
-        #     mlo=mlo, mhi=mhi, solid_angle=solid_angle,
-        #     dz=zbins[1]-zbins[0], interp=interp)
-        # selfn.plot_Nz(ax, color=color, ls='--')
+        selfn = util.SelectionFunction(
+            cosmo, lf_pars=lf_pars, 
+            mlo=mlo, mhi=mhi, solid_angle=solid_angle,
+            dz=zbins[1]-zbins[0], interp=interp)
+        selfn.plot_Nz(ax, color=color, ls='--')
 
     pickle.dump(counts_dict, open(outfile, 'wb'))
     plt.legend()
@@ -469,7 +483,7 @@ def mcmc(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7], prefix='w_mag/',
                              DD_counts, DR_counts, RR_counts,
                              mlo=info['mlo'], mhi=info['mhi']))
         corr = corrs[0]
-        corr.err = np.std(np.array([corrs[i].est for i in range(1, njack+1)]), axis=0)
+        corr.err = (njack-1)*np.std(np.array([corrs[i].est for i in range(1, njack+1)]), axis=0)
         corr.ic_calc(fit_range, p0, 5)
         corr_slices.append(corr)
 
@@ -502,7 +516,7 @@ def xir_z_plot(nz=10, njack=10, fit_range=[0.1, 20], p0=[5, 1.7], prefix='xir_z/
                 wcorr.Corr1d(info['Ngal'], info['Nran'],
                              DD_counts, DR_counts, RR_counts))
         corr = corrs[0]
-        corr.err = np.std(np.array([corrs[i].est for i in range(1, njack+1)]), axis=0)
+        corr.err = (njack-1)*np.std(np.array([corrs[i].est for i in range(1, njack+1)]), axis=0)
         color = next(ax._get_lines.prop_cycler)['color']
         popt, pcov = corr.fit_xi(fit_range, p0, ax, color)
         print(popt, pcov)
@@ -556,7 +570,7 @@ def gam_fun(p, M, z):
 
 def xir_M_z_plot(nm=5, nz=10, njack=9, fit_range=[0.1, 20], p0=[5, 1.7],
                  avgcounts=False, Ngal_min=500,
-                 outfile='xi_pars.pkl', xiscale=0):
+                 outfile=xi_file, xiscale=0):
     """xi(r) from pair counts in Magnitude and redshift bins."""
 
     prefix = f'xir_M_z_{band}/'
@@ -628,7 +642,7 @@ def xir_M_z_plot(nm=5, nz=10, njack=9, fit_range=[0.1, 20], p0=[5, 1.7],
                             DD_counts, DR_counts, DR_counts, RR_counts))
                 if info['Ngal'] > Ngal_min:
                     corr = corrs[0]
-                    corr.err = np.std(np.array([corrs[i].est for i in range(1, njack+1)]), axis=0)
+                    corr.err = (njack-1)*np.std(np.array([corrs[i].est for i in range(1, njack+1)]), axis=0)
                     if xiscale:
                         popt, pcov = corr.fit_xi(fit_range, p0, ax, color,
                                              plot_scale=corr.sep**2)
@@ -725,7 +739,7 @@ def xir_M_z_plot(nm=5, nz=10, njack=9, fit_range=[0.1, 20], p0=[5, 1.7],
                             DD_counts, DR_counts, DR_counts, RR_counts))
                 if info['Ngal'] > Ngal_min:
                     corr = corrs[0]
-                    corr.err = np.std(np.array([corrs[i].est for i in range(1, njack+1)]), axis=0)
+                    corr.err = (njack-1)*np.std(np.array([corrs[i].est for i in range(1, njack+1)]), axis=0)
                     if xiscale:
                         popt, pcov = corr.fit_xi(fit_range, p0, ax, color,
                                              plot_scale=corr.sep**2)
@@ -985,14 +999,14 @@ def kcorr(nplot=100000):
     kfit = p(zp)
     plt.plot(zp, kfit, label='All')
     print(p.coef)
-    for im in range(len(M_bins)-1):
-        sel = (M_bins[im] <= M) * (M < M_bins[im+1])
+    for im in range(len(Mbins)-1):
+        sel = (Mbins[im] <= M) * (M < Mbins[im+1])
         p = Polynomial.fit(z[sel], k[sel], deg=deg, domain=[0, 2], window=[0, 2])
         kfit = p(zp)
-        plt.plot(zp, kfit, label=f'[{M_bins[im]},  {M_bins[im+1]}]')
+        plt.plot(zp, kfit, label=f'[{Mbins[im]},  {Mbins[im+1]}]')
         print(p.coef)
     plt.colorbar(label=rf'$M_{band}$')
-    plt.ylim(-1, 3)
+    plt.ylim(-1, 1)
     plt.legend()
     plt.xlabel('z')
     plt.ylabel('Kcorr')
@@ -1013,8 +1027,8 @@ def zfun_log(z, p):
     
 def lf(zbins=np.linspace(0.0, 2.0, 11), p0=[-1.45, -21, -3],
        bounds=([-1.451, -23, 1e-4], [-1.449, -19, 1e-2]), zfit=0, beta=1,
-       outfile='lf_pars.pkl'):
-    """Flagship h-band LF in redshift slices."""
+       outfile=lf_file, mag_offset=0):
+    """Flagship LF in redshift slices."""
 
     def Schechter(M, alpha, Mstar, lgphistar):
         L = 10**(0.4*(Mstar-M))
@@ -1025,10 +1039,10 @@ def lf(zbins=np.linspace(0.0, 2.0, 11), p0=[-1.45, -21, -3],
     dmk = cosmo.distmod(cosmo._z) + kpoly(cosmo._z)
     
     t = Table.read(infile)
-    t = t[t[band+'mag'] < mlim]
-    Mcen = Mbins[:-1] + np.diff(Mbins)
+    t = t[t[band+'mag'] + mag_offset < mlim]
+    Mcen = Mbins_lf[:-1] + np.diff(Mbins_lf)
     area_frac = solid_angle/(4*math.pi)
-    nm = len(Mbins)-1
+    nm = len(Mbins_lf)-1
     nz = len(zbins)-1
     zmean = np.zeros(nz)
     alpha, Mstar, lgphistar = np.zeros(nz), np.zeros(nz), np.zeros(nz)
@@ -1042,7 +1056,7 @@ def lf(zbins=np.linspace(0.0, 2.0, 11), p0=[-1.45, -21, -3],
         zlo, zhi = zbins[iz], zbins[iz+1]
         Vzlo = cosmo.comoving_volume(zlo)
         sel = (zlo <= t['true_redshift_gal']) * (t['true_redshift_gal'] < zhi)
-        m, z = t[band+'mag'][sel], t['true_redshift_gal'][sel]
+        m, z = t[band+'mag'][sel] + mag_offset, t['true_redshift_gal'][sel]
         dm = cosmo.distmod(z)
         k = kpoly(z)
         M = m - dm - k
@@ -1057,11 +1071,11 @@ def lf(zbins=np.linspace(0.0, 2.0, 11), p0=[-1.45, -21, -3],
         # Find abs mag completeness limit at zlo (Loveday+2012 eqn 18)
         Mfaint = mlim - cosmo.distmod(zlo) - kpoly(zlo)
 
-        N, edges = np.histogram(M, Mbins)
-        phi, edges = np.histogram(M, Mbins, weights=1/Vmax)
-        phi /= np.diff(Mbins)
+        N, edges = np.histogram(M, Mbins_lf)
+        phi, edges = np.histogram(M, Mbins_lf, weights=1/Vmax)
+        phi /= np.diff(Mbins_lf)
         phi_err = phi/N**0.5
-        use = (N > 0) * (Mbins[1:] < Mfaint)
+        use = (N > 0) * (Mbins_lf[1:] < Mfaint)
         # Marr = np.append(Marr, Mcen[use])
         # zarr = np.append(zarr, zmean[iz]*np.ones(len(Mcen[use])))
         # lgphiarr = np.append(lgphiarr, np.log10(phi[use]))
@@ -1092,9 +1106,9 @@ def lf(zbins=np.linspace(0.0, 2.0, 11), p0=[-1.45, -21, -3],
 
     # Plot LF extrapolated to z=0 as sanity check
     lf0 = 10**interpn((Mcen, zmean), lgphi,
-                      np.array((Mbins, np.zeros(len(Mbins)))).T,
+                      np.array((Mbins_lf, np.zeros(len(Mbins_lf)))).T,
                       bounds_error=False, fill_value=None)
-    ax.plot(Mbins, lf0, '--', color='k', label='z = 0')
+    ax.plot(Mbins_lf, lf0, '--', color='k', label='z = 0')
 
     ax.semilogy(base=10)
     ax.set_ylim(1e-7, 1e1)

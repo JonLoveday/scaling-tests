@@ -22,5 +22,5 @@ module load GSL
 cd /research/astro/gama/loveday/Data/euclid
 python <<EOF
 import flagship
-flagship.wcounts()
+flagship.wcounts(mag_offset=0.1)
 EOF

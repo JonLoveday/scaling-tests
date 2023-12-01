@@ -259,11 +259,17 @@ def w_plot_class(nmag=1, njack=10, fit_range=[0.01, 5], p0=[0.05, 1.7],
            avgcounts=False):
     """w(theta) for different source classes"""
 
-    for (num, NS) in zip((1, 2), 'NS'):
+    # for (num, NS) in zip((1, 2), 'NS'):
+    for (num, NS) in zip((1, ), 'N'):
         plt.clf()
         fig, axes = plt.subplots(2, 3, sharex=True, sharey=True, num=num)
+        fig.set_size_inches(8, 6)
+        fig.subplots_adjust(hspace=0, wspace=0)
+        axes[0, 0].set_ylabel(r'$w(\theta)$')
+        axes[1, 0].set_ylabel(r'$w(\theta)$')
+        axes[1, 1].set_xlabel(r'$\theta$ [deg]')
         for (row, TC_class) in zip((0, 1), ('gal', 'star')):
-            for (col, BC_class) in zip((0, 1, 2), ('amb', 'gal', 'star')):
+            for (col, BC_class) in zip((0, 1, 2), ('gal', 'star', 'amb')):
                 ax = axes[row, col]
                 prefix = f'wmag_{NS}_TC_{TC_class}_B_{BC_class}/'
                 for imag in range(nmag):
@@ -276,21 +282,26 @@ def w_plot_class(nmag=1, njack=10, fit_range=[0.01, 5], p0=[0.05, 1.7],
                         infile = f'{prefix}GR_J{ijack}_m{imag}.pkl'
                         (info, DR_counts) = pickle.load(open(infile, 'rb'))
                         corrs.append(
-                            wcorr.Corr1d(info['Ngal'], info['Nran'],
-                                         DD_counts, DR_counts, RR_counts,
+                            wcorr.Corr1d(info['Ngal'], info['Ngal'],
+                                         info['Nran'], info['Nran'],
+                                         DD_counts, DR_counts, DR_counts, RR_counts,
                                          mlo=info['mlo'], mhi=info['mhi']))
                     corr = corrs[0]
-                    corr.err = np.std(np.array([corrs[i].est for i in range(1, njack+1)]), axis=0)
+                    corr.err = (njack-1)*np.std(np.array([corrs[i].est for i in range(1, njack+1)]), axis=0)
                     corr.ic_calc(fit_range, p0, 5)
                     color = next(ax._get_lines.prop_cycler)['color']
                     corr.plot(ax, color=color, label=f"m = [{info['mlo']}, {info['mhi']}]")
                     popt, pcov = corr.fit_w(fit_range, p0, ax, color)
                     print(popt, pcov)
+                    ax.text(0.9, 0.9, prefix[:-1], transform=ax.transAxes, ha='right')
+                    ax.text(0.9, 0.8,
+                            fr'$A = {popt[0]:3.2e}, \gamma = {popt[1]:3.2f}$',
+                            transform=ax.transAxes, ha='right')
+        # plt.semilogx()
         plt.loglog()
-        plt.legend()
-        plt.xlabel(r'$\theta$ / degrees')
-        plt.ylabel(r'$w(\theta)$')
-        plt.show()
+        plt.ylim(1e-3, 2)
+        # plt.legend()
+    plt.show()
 
 
 def w_plot(nmag=7, njack=10, fit_range=[0.01, 5], p0=[0.05, 1.7],
@@ -316,7 +327,7 @@ def w_plot(nmag=7, njack=10, fit_range=[0.01, 5], p0=[0.05, 1.7],
                              DD_counts, DR_counts, RR_counts,
                              mlo=info['mlo'], mhi=info['mhi']))
         corr = corrs[0]
-        corr.err = np.std(np.array([corrs[i].est for i in range(1, njack+1)]), axis=0)
+        corr.err = (njack-1)*np.std(np.array([corrs[i].est for i in range(1, njack+1)]), axis=0)
         corr.ic_calc(fit_range, p0, 5)
         corr_slices.append(corr)
         color = next(ax._get_lines.prop_cycler)['color']
@@ -356,7 +367,7 @@ def w_plot_pred(nmag=7, njack=10, fit_range=[0.01, 1], p0=[0.05, 1.7],
                              DD_counts, DR_counts, RR_counts,
                              mlo=info['mlo'], mhi=info['mhi']))
         corr = corrs[0]
-        corr.err = np.std(np.array([corrs[i].est for i in range(1, njack+1)]), axis=0)
+        corr.err = (njack-1)*np.std(np.array([corrs[i].est for i in range(1, njack+1)]), axis=0)
         corr.ic_calc(fit_range, p0, 5)
         corr_slices.append(corr)
         color = next(ax._get_lines.prop_cycler)['color']
