@@ -331,7 +331,7 @@ def w_plot(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7],
 
 def w_plot_pred(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7],
                 avgcounts=False, lf_pars=lf_file,
-                Nz_file=Nz_file, xi_pars=xi_file,
+                Nz_file=Nz_file, xi_pars=xi_file, w_prefix=w_prefix,
                 ic_corr=0,  w_pred_file=f'w_pred_{band}.pkl',
                 pltfile='integrand_plots.pdf'):
     """Plot observed and predicted w(theta) in mag bins.

@@ -25,7 +25,7 @@ import calc_kcor
 import util
 import wcorr
 
-ncores = min(64, psutil.cpu_count(logical=False))
+ncores = min(32, psutil.cpu_count(logical=False))
 print(f'{ncores=}')
 
 ln10 = math.log(10)
