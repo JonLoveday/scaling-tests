@@ -286,7 +286,7 @@ def desi_legacy_xcounts(desi_galfile='BGS_ANY_S_clustering.dat.fits',
 
         for iz in range(len(zbins) - 1):
             zlo, zhi = zbins[iz], zbins[iz+1]
-            dgalsamp = dgalcat[dgalcat.sub=iz]
+            dgalsamp = dgalcat[dgalcat.sub==iz]
             dgcat = treecorr.Catalog(ra=dgalsamp.ra, dec=dgalsamp.dec,
                                      ra_units='deg', dec_units='deg',
                                      patch=dgalsamp.jack)
@@ -296,7 +296,7 @@ def desi_legacy_xcounts(desi_galfile='BGS_ANY_S_clustering.dat.fits',
 
             for im in range(len(magbins) - 1):
                 mlo, mhi = magbins[im], magbins[im+1]
-                lgalsamp = lgalcat[lgalcat.sub=im]
+                lgalsamp = lgalcat[lgalcat.sub==im]
                 lgcat = treecorr.Catalog(ra=lgalsamp.ra, dec=lgalsamp.dec,
                                          ra_units='deg', dec_units='deg')
                 rd = treecorr.NNCorrelation(min_sep=tmin, max_sep=tmax, nbins=nbins,
