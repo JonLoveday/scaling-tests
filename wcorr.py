@@ -105,10 +105,17 @@ class Cat(object):
             sel *= self.jack != jack
         if sub > -1:
             sel *= self.sub == sub
-        subcat = Cat(self.ra[sel], self.dec[sel],
-                     sub=self.sub[sel], jack=self.jack[sel])
+        subcat = Cat(self.ra[sel], self.dec[sel])
         try:
             subcat.r = self.r[sel]
+        except AttributeError:
+            pass
+        try:
+            subcat.sub = self.sub[sel]
+        except AttributeError:
+            pass
+        try:
+            subcat.jack = self.jack[sel]
         except AttributeError:
             pass
         return subcat
