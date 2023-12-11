@@ -106,7 +106,7 @@ class Cat(object):
         if sub > -1:
             sel *= self.sub == sub
         subcat = Cat(self.ra[sel], self.dec[sel],
-                     self.sub[sel], self.jack[sel])
+                     sub=self.sub[sel], jack=self.jack[sel])
         try:
             subcat.r = self.r[sel]
         except AttributeError:
