@@ -105,8 +105,13 @@ class Cat(object):
             sel *= self.jack != jack
         if sub > -1:
             sel *= self.sub == sub
-        return Cat(self.ra[sel], self.dec[sel], self.r[sel],
-                   self.sub[sel], self.jack[sel])
+        subcat = Cat(self.ra[sel], self.dec[sel],
+                     self.sub[sel], self.jack[sel])
+        try:
+            subcat.r = self.r[sel]
+        except AttributeError:
+            pass
+        return subcat
 
     def write(self, outfile):
         """Write catalogue to csv file."""

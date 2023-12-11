@@ -192,7 +192,6 @@ def desi_legacy_xcounts(desi_galfile='BGS_ANY_S_clustering.dat.fits',
 
     bins = np.logspace(np.log10(tmin), np.log10(tmax), nbins + 1)
     tcen = 10**(0.5*np.diff(np.log10(bins)) + np.log10(bins[:-1]))
-    pool = mp.Pool(ncores)
 
     # Read DESI galaxies plus randoms
     dgalcat, njack = create_desi_cat(desi_galfile)
@@ -243,6 +242,7 @@ def desi_legacy_xcounts(desi_galfile='BGS_ANY_S_clustering.dat.fits',
     # pool.join()
 
     if pc_code == 'corrfunc':
+        pool = mp.Pool(ncores)
         lrcoords = lrancat.sample()
         for ijack in range(njack+1):
             drcoords = drancat.sample(ijack)
@@ -273,6 +273,8 @@ def desi_legacy_xcounts(desi_galfile='BGS_ANY_S_clustering.dat.fits',
                     outfile = f'{out_path}/D2R1_J{ijack}_z{iz}_m{im}.pkl'
                     result = pool.apply_async(
                         wcorr.wxcounts, args=(*lgcoords, *drcoords, bins, info,  outfile))
+        pool.close()
+        pool.join()
 
     if pc_code == 'treecorr':
         lrcat = treecorr.Catalog(ra=lrancat.ra, dec=lrancat.dec,
@@ -318,8 +320,6 @@ def desi_legacy_xcounts(desi_galfile='BGS_ANY_S_clustering.dat.fits',
                 outfile = f'{out_path}/z{iz}_m{im}.fits'
                 dd.write(outfile, rr=rr, dr=dr, rd=rd, write_patch_results=True)
 
-    pool.close()
-    pool.join()
 
 
 def legacy_wcounts(path='/pscratch/sd/l/loveday/Legacy/',
