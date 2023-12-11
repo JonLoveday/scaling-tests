@@ -280,13 +280,15 @@ def desi_legacy_xcounts(desi_galfile='BGS_ANY_S_clustering.dat.fits',
         drcat = treecorr.Catalog(ra=drancat.ra, dec=drancat.dec,
                                  ra_units='deg', dec_units='deg',
                                  patch=drancat.jack)
+        print('random cats: ', drancat.nobj, lrancat.nobj)
         rr = treecorr.NNCorrelation(min_sep=tmin, max_sep=tmax, nbins=nbins,
                                       sep_units='degrees')
         rr.process(lrcat, drcat)
 
+        print('iz  im   Ngal_DESI   Ngal_Legacy')
         for iz in range(len(zbins) - 1):
             zlo, zhi = zbins[iz], zbins[iz+1]
-            dgalsamp = dgalcat[dgalcat.sub==iz]
+            dgalsamp = dgalcat.subset(sub=iz)
             dgcat = treecorr.Catalog(ra=dgalsamp.ra, dec=dgalsamp.dec,
                                      ra_units='deg', dec_units='deg',
                                      patch=dgalsamp.jack)
@@ -296,9 +298,10 @@ def desi_legacy_xcounts(desi_galfile='BGS_ANY_S_clustering.dat.fits',
 
             for im in range(len(magbins) - 1):
                 mlo, mhi = magbins[im], magbins[im+1]
-                lgalsamp = lgalcat[lgalcat.sub==im]
+                lgalsamp = lgalcat.subset(sub=im)
                 lgcat = treecorr.Catalog(ra=lgalsamp.ra, dec=lgalsamp.dec,
                                          ra_units='deg', dec_units='deg')
+                print(iz, im, dgalsamp.nobj, lgalsamp.nobj)
                 rd = treecorr.NNCorrelation(min_sep=tmin, max_sep=tmax, nbins=nbins,
                                       sep_units='degrees')
                 rd.process(lgcat, drcat)

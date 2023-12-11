@@ -97,6 +97,17 @@ class Cat(object):
         else:
             return self.ra[sel], self.dec[sel]
 
+    def subset(self, jack=0, sub=-1):
+        """Return catalogue subset, excluding specified jk region if jack > 0,
+        and including only specified subsample if sub > -1."""
+        sel = np.ones(self.nobj, dtype=bool)
+        if jack > 0:
+            sel *= self.jack != jack
+        if sub > -1:
+            sel *= self.sub == sub
+        return Cat(self.ra[sel], self.dec[sel], self.r[sel],
+                   self.sub[sel], self.jack[sel])
+
     def write(self, outfile):
         """Write catalogue to csv file."""
         if hasattr(self, 'r'):
