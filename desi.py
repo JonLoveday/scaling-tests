@@ -20,6 +20,7 @@ import Corrfunc
 import pdb
 import psutil
 import pymangle
+import treecorr
 
 import calc_kcor
 import util
@@ -169,7 +170,7 @@ def desi_legacy_xcounts(desi_galfile='BGS_ANY_S_clustering.dat.fits',
                         out_path='/pscratch/sd/l/loveday/Legacy/10.1/bgs_x_l',
                         tmin=0.01, tmax=10, nbins=20,
                         zbins=np.linspace(0.0, 0.5, 6),
-                        magbins=np.linspace(18, 20, 5)):
+                        magbins=np.linspace(18, 20, 5), pc_code='treecorr'):
     """DESI-Legacy angular cross-pair counts in redshift/magnitude bins."""
 
     def create_desi_cat(infile):
@@ -241,36 +242,79 @@ def desi_legacy_xcounts(desi_galfile='BGS_ANY_S_clustering.dat.fits',
     # pool.close()
     # pool.join()
 
-    lrcoords = lrancat.sample()
-    for ijack in range(njack+1):
-        drcoords = drancat.sample(ijack)
-        info = {'Jack': ijack,
-                'Nran1': len(drcoords[0]), 'Nran2': len(lrcoords[0]),
-                'bins': bins, 'tcen': tcen}
-        outfile = f'{out_path}/R1R2_J{ijack}.pkl'
-        result = pool.apply_async(
-            wcorr.wxcounts, args=(*drcoords, *lrcoords, bins, info, outfile))
+    if pc_code == 'corrfunc':
+        lrcoords = lrancat.sample()
+        for ijack in range(njack+1):
+            drcoords = drancat.sample(ijack)
+            info = {'Jack': ijack,
+                    'Nran1': len(drcoords[0]), 'Nran2': len(lrcoords[0]),
+                    'bins': bins, 'tcen': tcen}
+            outfile = f'{out_path}/R1R2_J{ijack}.pkl'
+            result = pool.apply_async(
+                wcorr.wxcounts, args=(*drcoords, *lrcoords, bins, info, outfile))
+            for iz in range(len(zbins) - 1):
+                zlo, zhi = zbins[iz], zbins[iz+1]
+                dgcoords = dgalcat.sample(ijack, sub=iz)
+                for im in range(len(magbins) - 1):
+                    mlo, mhi = magbins[im], magbins[im+1]
+                    lgcoords = lgalcat.sample(sub=im)
+                    info = {'Jack': ijack, 'zlo': zlo, 'zhi': zhi,
+                            'mlo': mlo, 'mhi': mhi,
+                            'Ngal1': len(dgcoords[0]), 'Ngal2': len(lgcoords[0]),
+                            'Nran1': len(drcoords[0]), 'Nran2': len(lrcoords[0]),
+                            'bins': bins, 'tcen': tcen}
+
+                    outfile = f'{out_path}/D1D2_J{ijack}_z{iz}_m{im}.pkl'
+                    result = pool.apply_async(
+                        wcorr.wxcounts, args=(*dgcoords, *lgcoords, bins, info, outfile))
+                    outfile = f'{out_path}/D1R2_J{ijack}_z{iz}_m{im}.pkl'
+                    result = pool.apply_async(
+                        wcorr.wxcounts, args=(*dgcoords, *lrcoords, bins, info,  outfile))
+                    outfile = f'{out_path}/D2R1_J{ijack}_z{iz}_m{im}.pkl'
+                    result = pool.apply_async(
+                        wcorr.wxcounts, args=(*lgcoords, *drcoords, bins, info,  outfile))
+
+    if pc_code == 'treecorr':
+        lrcat = treecorr.Catalog(ra=lrancat.ra, dec=lrancat.dec,
+                                 ra_units='deg', dec_units='deg')
+        drcat = treecorr.Catalog(ra=drancat.ra, dec=drancat.dec,
+                                 ra_units='deg', dec_units='deg',
+                                 patch=drancat.jack)
+        rr = treecorr.NNCorrelation(min_sep=tmin, max_sep=tmax, nbins=nbins,
+                                      sep_units='degrees')
+        rr.process(lrcat, drcat)
+
         for iz in range(len(zbins) - 1):
             zlo, zhi = zbins[iz], zbins[iz+1]
-            dgcoords = dgalcat.sample(ijack, sub=iz)
+            dgalsamp = dgalcat[dgalcat.sub=iz]
+            dgcat = treecorr.Catalog(ra=dgalsamp.ra, dec=dgalsamp.dec,
+                                     ra_units='deg', dec_units='deg',
+                                     patch=dgalsamp.jack)
+            dr = treecorr.NNCorrelation(min_sep=tmin, max_sep=tmax, nbins=nbins,
+                                      sep_units='degrees')
+            dr.process(dgcat, lrcat)
+
             for im in range(len(magbins) - 1):
                 mlo, mhi = magbins[im], magbins[im+1]
-                lgcoords = lgalcat.sample(sub=imag)
+                lgalsamp = lgalcat[lgalcat.sub=im]
+                lgcat = treecorr.Catalog(ra=lgalsamp.ra, dec=lgalsamp.dec,
+                                         ra_units='deg', dec_units='deg')
+                rd = treecorr.NNCorrelation(min_sep=tmin, max_sep=tmax, nbins=nbins,
+                                      sep_units='degrees')
+                rd.process(lgcat, drcat)
+
+                dd = treecorr.NNCorrelation(min_sep=tmin, max_sep=tmax, nbins=nbins,
+                                      sep_units='degrees')
+                dd.process(dgcat, drcat)
+                dd.calculateXi(rr=rr, dr=dr, rd=rd)
                 info = {'Jack': ijack, 'zlo': zlo, 'zhi': zhi,
                         'mlo': mlo, 'mhi': mhi,
-                        'Ngal1': len(dgcoords[0]), 'Ngal2': len(lgcoords[0]),
-                        'Nran1': len(drcoords[0]), 'Nran2': len(lrcoords[0]),
+                        'Ngal1': len(dgcat), 'Ngal2': len(lgcat),
+                        'Nran1': len(drcat), 'Nran2': len(lrcat),
                         'bins': bins, 'tcen': tcen}
+                outfile = f'{out_path}/z{iz}_m{im}.fits'
+                dd.write(outfile, rr=rr, dr=dr, rd=rd, write_patch_results=True)
 
-                outfile = f'{out_path}/D1D2_J{ijack}_z{iz}_m{im}.pkl'
-                result = pool.apply_async(
-                    wcorr.wxcounts, args=(*dgcoords, *lgcoords, bins, info, outfile))
-                outfile = f'{out_path}/D1R2_J{ijack}_z{iz}_m{im}.pkl'
-                result = pool.apply_async(
-                    wcorr.wxcounts, args=(*dgcoords, *lrcoords, bins, info,  outfile))
-                outfile = f'{out_path}/D2R1_J{ijack}_z{iz}_m{im}.pkl'
-                result = pool.apply_async(
-                    wcorr.wxcounts, args=(*lgcoords, *drcoords, bins, info,  outfile))
     pool.close()
     pool.join()
 

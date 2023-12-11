@@ -471,7 +471,19 @@ def wcounts(ra, dec, bins, info, outfile, ra2=None, dec2=None, nthreads=1,
 
 def wxcounts(ra, dec, ra2, dec2, bins, info, outfile, nthreads=1,
              output_thetaavg=False):
-    """w(theta) cross counts."""
+    """w(theta) cross counts using corrfunc."""
+
+    autocorr = 0
+    counts = Corrfunc.mocks.DDtheta_mocks(
+        autocorr, nthreads, bins, ra, dec,
+        RA2=ra2, DEC2=dec2, output_thetaavg=output_thetaavg)
+
+    pickle.dump((info, counts), open(outfile, 'wb'))
+
+
+def wxcounts_tree(ra, dec, ra2, dec2, bins, info, outfile, nthreads=1,
+             output_thetaavg=False):
+    """w(theta) cross counts using treecorr."""
 
     autocorr = 0
     counts = Corrfunc.mocks.DDtheta_mocks(
