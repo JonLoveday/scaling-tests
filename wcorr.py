@@ -269,12 +269,16 @@ class Corr1d(object):
 
         sel = ((self.sep >= fit_range[0]) * (self.sep < fit_range[1]) *
                np.isfinite(self.est) * (self.err > 0) * (self.r1r2 > 10))
-        popt, pcov = scipy.optimize.curve_fit(
-            power_law, self.sep[sel], self.est_corr()[sel], p0=p0,
-            sigma=self.err[sel], ftol=ftol, xtol=xtol)
-        if ax:
-            ax.plot(self.sep[sel], power_law(self.sep[sel], *popt), color=color)
-
+        try:
+            popt, pcov = scipy.optimize.curve_fit(
+                power_law, self.sep[sel], self.est_corr()[sel], p0=p0,
+                sigma=self.err[sel], ftol=ftol, xtol=xtol)
+            if ax:
+                ax.plot(self.sep[sel], power_law(self.sep[sel], *popt), color=color)
+        except RuntimeError:
+            pdb.set_trace()
+            popt = np.zeros(2)
+            pcov = np.zeros((2, 2))
         return popt, pcov
 
     def fit_xi(self, fit_range, p0=[5, 1.7], ax=None, color=None,
