@@ -78,12 +78,19 @@ def desi_wcounts(path='/Users/loveday/Data/DESI/',
     rancat, njack_ran = create_cat(ranfile)
     assert (njack == njack_ran)
 
+    plt.clf()
+    plt.subplot(121)
+    plt.scatter(galcat.ra, galcat.dec, c=galcat.jack, s=0.1)
+    plt.subplot(122)
+    plt.scatter(rancat.ra, rancat.dec, c=rancat.jack, s=0.1)
+    plt.show()
+    
     rcat = treecorr.Catalog(ra=rancat.ra, dec=rancat.dec,
                             ra_units='deg', dec_units='deg',
                             patch=rancat.jack-1)
     print('random cat: ', rancat.nobj)
     rr = treecorr.NNCorrelation(min_sep=tmin, max_sep=tmax, nbins=nbins,
-                                sep_units='degrees', var_method='jackknife')
+                                sep_units='degrees') #, var_method='jackknife')
     rr.process(rcat)
 
     for iz in range(len(zbins) - 1):
@@ -93,16 +100,18 @@ def desi_wcounts(path='/Users/loveday/Data/DESI/',
         gcat = treecorr.Catalog(ra=galcat.ra[sel], dec=galcat.dec[sel],
                                  ra_units='deg', dec_units='deg',
                                  patch=galcat.jack[sel]-1)
+
         dr = treecorr.NNCorrelation(min_sep=tmin, max_sep=tmax, nbins=nbins,
-                                  sep_units='degrees', var_method='jackknife')
+                                  sep_units='degrees') #, var_method='jackknife')
         dr.process(gcat, rcat)
         dd = treecorr.NNCorrelation(
             min_sep=tmin, max_sep=tmax, nbins=nbins,
             sep_units='degrees', var_method='jackknife')
         dd.process(gcat)
         dd.calculateXi(rr=rr, dr=dr)
+        xi_jack, w = dd.build_cov_design_matrix('jackknife')
         outfile = f'{out_path}z{iz}.fits'
-        dd.write(outfile, rr=rr, dr=dr) # , write_patch_results=True)
+        dd.write(outfile, rr=rr, dr=dr)
         with fits.open(outfile, mode='update') as hdul:
             hdr = hdul[1].header
             hdr['zlo'] = zlo
@@ -110,6 +119,7 @@ def desi_wcounts(path='/Users/loveday/Data/DESI/',
             hdr['zmean'] = zmean
             hdr['Ngal'] = gcat.nobj
             hdr['Nran'] = rcat.nobj
+            hdul.append(fits.PrimaryHDU(xi_jack))
             hdul.flush()
 
 
@@ -209,10 +219,9 @@ def desi_xcounts(path='/Users/loveday/Data/DESI/',
                 sep_units='degrees', var_method='jackknife')
             dd.process(gcatz, gcatm)
             dd.calculateXi(rr=rr, dr=dr, rd=rd)
+            xi_jack, w = dd.build_cov_design_matrix('jackknife')
             outfile = f'{out_path}z{iz}_m{im}.fits'
-            dd.write(outfile, rr=rr, dr=dr, rd=rd, write_patch_results=True)
-            dr.write(out_path+'test.fits', write_patch_results=True)
-
+            dd.write(outfile, rr=rr, dr=dr, rd=rd)
             with fits.open(outfile, mode='update') as hdul:
                 hdr = hdul[1].header
                 hdr['zlo'] = zlo
@@ -224,6 +233,7 @@ def desi_xcounts(path='/Users/loveday/Data/DESI/',
                 hdr['Ngal2'] = gcatm.nobj
                 hdr['Nran1'] = rcat.nobj
                 hdr['Nran2'] = rcat.nobj
+                hdul.append(fits.PrimaryHDU(xi_jack))
                 hdul.flush()
 
 
@@ -275,12 +285,14 @@ def legacy_wcounts(galfile='legacy_S.fits',
             sep_units='degrees', var_method='jackknife')
         dd.process(gcat)
         dd.calculateXi(rr=rr, dr=dr)
+        xi_jack, w = dd.build_cov_design_matrix('jackknife')
         outfile = f'{out_path}m{imag}.fits'
         dd.write(outfile, rr=rr, dr=dr)
         with fits.open(outfile, mode='update') as hdul:
             hdr = hdul[1].header
             hdr['mlo'] = mlo
             hdr['mhi'] = mhi
+            hdul.append(fits.PrimaryHDU(xi_jack))
             hdul.flush()                    
     del t, gcat, rcat, dd, dr, rr
 
@@ -520,8 +532,9 @@ def desi_legacy_xcounts(desi_galfile='BGS_ANY_S_clustering.dat.fits',
                     sep_units='degrees', var_method='jackknife')
                 dd.process(dgcat, lgcat)
                 dd.calculateXi(rr=rr, dr=dr, rd=rd)
+                xi_jack, w = dd.build_cov_design_matrix('jackknife')
                 outfile = f'{out_path}z{iz}_m{im}.fits'
-                dd.write(outfile, rr=rr, dr=dr, rd=rd) # , write_patch_results=True)
+                dd.write(outfile, rr=rr, dr=dr, rd=rd)
                 with fits.open(outfile, mode='update') as hdul:
                     hdr = hdul[1].header
                     hdr['zlo'] = zlo
@@ -532,6 +545,7 @@ def desi_legacy_xcounts(desi_galfile='BGS_ANY_S_clustering.dat.fits',
                     hdr['Ngal2'] = lgcat.nobj
                     hdr['Nran1'] = drcat.nobj
                     hdr['Nran2'] = lrcat.nobj
+                    hdul.append(fits.PrimaryHDU(xi_jack))
                     hdul.flush()
 
 # def legacy_wcounts(path='/pscratch/sd/l/loveday/Legacy/',
@@ -845,15 +859,17 @@ def Nz(infile='WAVES-N_0p2_Z22_GalsAmbig_CompletePhotoZ.fits',
 
 def cz_BGS_N_test():
     cz_test(galfile='BGS_ANY_N_clustering.dat.fits',
-            xdir='BGS_N_w_z_m', adir='BGS_N_w_z')
+            xdir='BGS_N_w_z_m', adir='BGS_N_w_z', njack=10)
     
 def cz_test(galfile='BGS_ANY_S_clustering.dat.fits',
-            xdir='BGS_S_w_z_m', adir='BGS_S_w_z', nz=12, nm=4, fit_range=[0.001, 1],
+            xdir='BGS_S_w_z_m', adir='BGS_S_w_z', njack=10, nz=12, nm=4,
+            fit_range=[0.001, 1],
             p0=[0.05, 1.7], rmin=0.01, rmax=10):
     """Test cluster-z on DESI alone."""
 
     # w_rr in redshift bins
     w_rr_av = np.zeros(nz)
+    w_rr_av_jack = np.zeros((njack, nz))
     d, zmean = np.zeros(nz), np.zeros(nz)
     plt.clf()
     fig, axes = plt.subplots(1, nz, sharex=True, sharey=True, num=1)
@@ -862,9 +878,11 @@ def cz_test(galfile='BGS_ANY_S_clustering.dat.fits',
     for iz in range(nz):
         infile = f'{adir}/z{iz}.fits'
         t = Table.read(infile)
+        with fits.open(infile) as hdul:
+            xi_jack = hdul[2].data
         corr = wcorr.Corr1d()
         corr.sep = t['meanr']
-        corr.est = t['xi']
+        corr.est = np.vstack((t['xi'], xi_jack))
         corr.err = t['sigma_xi']
         corr.r1r2 = t['RR']
         ax = axes[iz]
@@ -881,6 +899,14 @@ def cz_test(galfile='BGS_ANY_S_clustering.dat.fits',
         print(f'{zmean[iz]:4.3f}, {d[iz]:4.3f}, {popt[0]:4.3f}, {popt[1]:4.3f}, {tmin:4.3e}, {tmax:4.3e}, {w_rr_av[iz]:4.3f}')
         ax.axvline(tmin, c='g')
         ax.axvline(tmax, c='g')
+
+        # Fits to jackknife
+        for ijack in range(njack):
+            popt, pcov = corr.fit_w(fit_range, p0, ax, ijack=ijack+1)
+            A = popt[0]
+            omg = 1 - popt[1]
+            w_rr_av_jack[ijack, iz] = A/omg*(tmax**omg - tmin**omg)
+            
     plt.loglog()
     axes[nz//2].set_xlabel(r'$\theta$ / degrees')
     axes[0].set_ylabel(r'$w(\theta)$')
@@ -888,6 +914,7 @@ def cz_test(galfile='BGS_ANY_S_clustering.dat.fits',
 
     # w_rt in redshift-magnitude bins
     w_rt_av = np.zeros((nz, nm))
+    w_rt_av_jack = np.zeros((njack, nz, nm))
     mlo, mhi = np.zeros(nm), np.zeros(nm)
     plt.clf()
     fig, axes = plt.subplots(nm, nz, sharex=True, sharey=True, num=1)
@@ -898,9 +925,11 @@ def cz_test(galfile='BGS_ANY_S_clustering.dat.fits',
         for im in range(nm):
             infile = f'{xdir}/z{iz}_m{im}.fits'
             t = Table.read(infile)
+            with fits.open(infile) as hdul:
+                xi_jack = hdul[2].data
             corr = wcorr.Corr1d()
             corr.sep = t['meanr']
-            corr.est = t['xi']
+            corr.est = np.vstack((t['xi'], xi_jack))
             corr.err = t['sigma_xi']
             corr.r1r2 = t['RR']
             ax = axes[im, iz]
@@ -917,10 +946,17 @@ def cz_test(galfile='BGS_ANY_S_clustering.dat.fits',
                         transform=ax.transAxes)
             tmin, tmax = 180/math.pi*rmin/d[iz], 180/math.pi*rmax/d[iz]
             w_rt_av[iz, im] = A/omg*(tmax**omg - tmin**omg)
-            print(f'{zmean[iz]:4.3f}, {d[iz]:4.3f}, {im}, {popt[0]:4.3f}, {popt[1]:4.3f}, {tmin:4.3e}, {tmax:4.3e}, {w_rr_av[iz]:4.3f}')
+            print(f'{zmean[iz]:4.3f}, {d[iz]:4.3f}, {im}, {popt[0]:4.3f}, {popt[1]:4.3f}, {tmin:4.3e}, {tmax:4.3e}, {w_rt_av[iz, im]:4.3f}')
             ax.axvline(tmin, c='g')
             ax.axvline(tmax, c='g')
 
+            # Fits to jackknife
+            for ijack in range(njack):
+                popt, pcov = corr.fit_w(fit_range, p0, ax, ijack=ijack+1)
+                A = popt[0]
+                omg = 1 - popt[1]
+                w_rt_av_jack[ijack, iz, im] = A/omg*(tmax**omg - tmin**omg)
+            print(np.array_str(w_rt_av_jack[:, iz, im], precision=3))
     plt.loglog()
     axes[nm-1, nz//2].set_xlabel(r'$\theta$ / degrees')
     axes[nm//2, 0].set_ylabel(r'$w(\theta)$')
@@ -941,10 +977,18 @@ def cz_test(galfile='BGS_ANY_S_clustering.dat.fits',
         zhist, edges = np.histogram(z[sel], bins=np.linspace(0.0, 0.6, 13))
         ax.stairs(zhist, edges)
         pmz = w_rt_av[:, im]/w_rr_av**0.5
+        pmz_jack = np.zeros((njack, nz))
+        for ijack in range(njack):
+            pmz_jack[ijack, :] = w_rt_av_jack[ijack, :, im]/w_rr_av_jack[ijack, :]**0.5
+        scale = zhist.sum()/pmz.sum()
+        pmz *= scale
+        pmz_jack *= scale
+        pmz_err = (njack-1)**0.5 * np.std(pmz_jack, axis=0)
         print(zhist)
         print(pmz)
-        pmz *= zhist.sum()/pmz.sum()
-        ax.plot(zmean, pmz)
+        print(pmz_err)
+        print(pmz_jack)
+        ax.errorbar(zmean, pmz, pmz_err)
         ax.text(0.1, 1.05, f"m=[{mlo[im]}, {mhi[im]}]",
                 transform=ax.transAxes)
     axes[nm//2].set_xlabel(r'Redshift')

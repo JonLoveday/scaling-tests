@@ -240,9 +240,9 @@ class Corr1d(object):
             self.ic = (self.r1r2 * xi_mod).sum() / (self.r1r2).sum()
             print(i, *popt)
 
-    def est_corr(self):
+    def est_corr(self, ijack=0):
         """Returns integral-constraint corrected estimate."""
-        return self.est + self.ic
+        return self.est[ijack, :] + self.ic
     
     def plot(self, ax, tscale=1, wscale=1, color=None, fout=None, label=None,
              pl_div=None):
@@ -260,7 +260,7 @@ class Corr1d(object):
                       self.cov.sig[i], file=fout)
 
     def fit_w(self, fit_range, p0=[0.05, 1.7], ax=None, color=None,
-              ftol=1e-3, xtol=1e-3):
+              ftol=1e-3, xtol=1e-3, ijack=0):
         """Fit a power law to w(theta)."""
 
         def power_law(theta, A, gamma):
@@ -268,10 +268,10 @@ class Corr1d(object):
             return A * theta**(1-gamma)
 
         sel = ((self.sep >= fit_range[0]) * (self.sep < fit_range[1]) *
-               np.isfinite(self.est) * (self.err > 0) * (self.r1r2 > 10))
+               np.isfinite(self.est_corr(ijack)) * (self.err > 0) * (self.r1r2 > 10))
         try:
             popt, pcov = scipy.optimize.curve_fit(
-                power_law, self.sep[sel], self.est_corr()[sel], p0=p0,
+                power_law, self.sep[sel], self.est_corr(ijack)[sel], p0=p0,
                 sigma=self.err[sel], ftol=ftol, xtol=xtol)
             if ax:
                 ax.plot(self.sep[sel], power_law(self.sep[sel], *popt), color=color)
