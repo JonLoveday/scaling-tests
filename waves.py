@@ -36,7 +36,7 @@ Om0 = 0.319
 cosmo = util.CosmoLookup(h, Om0)
 
 north_limits = [157.25, 225.0, -3.95, 3.95]
-south_limits = [330, 52.5, -35.6, -27]
+south_limits = [330, 51.6, -35.6, -27]
 solid_angle_north = ((north_limits[1]-north_limits[0]) *
                      (north_limits[3]-north_limits[2]) * (math.pi/180)**2)
 
