@@ -155,7 +155,7 @@ def wcounts(galfiles=['sweep-000m005-005p000.fits',
     ijack = 0
     for brick in bricks:
         ijack += 1
-        sel = t['BRICKID'] i== brick
+        sel = t['BRICKID'] == brick
         jack[sel] = ijack
     njack_ran = ijack
     assert (njack_gal == njack_ran)
