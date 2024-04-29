@@ -10,7 +10,7 @@
 #module load conda
 #conda activate jon
 python <<EOF
-import desi
-desi.legacy_wcounts()
+import legacy
+legacy.select()
 EOF
 
