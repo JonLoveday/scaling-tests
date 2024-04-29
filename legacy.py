@@ -35,6 +35,7 @@ Om0 = 0.319
 cosmo = util.CosmoLookup(h, Om0)
 
 solid_angle = 1
+solid_angle_north = 1
 
 def select(maglim=22,
            path='/global/cfs/cdirs/cosmo/data/legacysurvey/dr10/south/sweep/10.1/',
