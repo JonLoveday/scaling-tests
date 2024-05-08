@@ -859,110 +859,18 @@ def Nz(infile='WAVES-N_0p2_Z22_GalsAmbig_CompletePhotoZ.fits',
 
 def cz_BGS_N_test():
     cz_test(galfile='BGS_ANY_N_clustering.dat.fits',
-            xdir='BGS_N_w_z_m', adir='BGS_N_w_z', njack=10)
+            adir='BGS_N_w_z', xdir='BGS_N_w_z_m', njack=10)
     
 def cz_test(galfile='BGS_ANY_S_clustering.dat.fits',
-            xdir='BGS_S_w_z_m', adir='BGS_S_w_z', njack=10, nz=12, nm=4,
+            adir='BGS_S_w_z', xdir='BGS_S_w_z_m', njack=10, nz=12, nm=4,
             fit_range=[0.001, 1],
             p0=[0.05, 1.7], rmin=0.01, rmax=10):
     """Test cluster-z on DESI alone."""
 
-    # w_rr in redshift bins
-    w_rr_av = np.zeros(nz)
-    w_rr_av_jack = np.zeros((njack, nz))
-    d, zmean = np.zeros(nz), np.zeros(nz)
-    plt.clf()
-    fig, axes = plt.subplots(1, nz, sharex=True, sharey=True, num=1)
-    fig.set_size_inches(8, 4)
-    fig.subplots_adjust(hspace=0, wspace=0)
-    for iz in range(nz):
-        infile = f'{adir}/z{iz}.fits'
-        t = Table.read(infile)
-        with fits.open(infile) as hdul:
-            xi_jack = hdul[2].data
-        corr = wcorr.Corr1d()
-        corr.sep = t['meanr']
-        corr.est = np.vstack((t['xi'], xi_jack))
-        corr.err = t['sigma_xi']
-        corr.r1r2 = t['RR']
-        ax = axes[iz]
-        corr.plot(ax=ax)
-        popt, pcov = corr.fit_w(fit_range, p0, ax)
-        A = popt[0]
-        omg = 1 - popt[1]
-        ax.text(0.0, 1.05, f"z=[{t.meta['ZLO']:3.2f}, {t.meta['ZHI']:3.2f}]",
-                transform=ax.transAxes)
-        zmean[iz] = t.meta['ZMEAN']
-        d[iz] = cosmo.comoving_distance(zmean[iz]).value
-        tmin, tmax = 180/math.pi*rmin/d[iz], 180/math.pi*rmax/d[iz]
-        w_rr_av[iz] = A/omg*(tmax**omg - tmin**omg)
-        print(f'{zmean[iz]:4.3f}, {d[iz]:4.3f}, {popt[0]:4.3f}, {popt[1]:4.3f}, {tmin:4.3e}, {tmax:4.3e}, {w_rr_av[iz]:4.3f}')
-        ax.axvline(tmin, c='g')
-        ax.axvline(tmax, c='g')
-
-        # Fits to jackknife
-        for ijack in range(njack):
-            popt, pcov = corr.fit_w(fit_range, p0, ax, ijack=ijack+1)
-            A = popt[0]
-            omg = 1 - popt[1]
-            w_rr_av_jack[ijack, iz] = A/omg*(tmax**omg - tmin**omg)
-            
-    plt.loglog()
-    axes[nz//2].set_xlabel(r'$\theta$ / degrees')
-    axes[0].set_ylabel(r'$w(\theta)$')
-    plt.show()
-
-    # w_rt in redshift-magnitude bins
-    w_rt_av = np.zeros((nz, nm))
-    w_rt_av_jack = np.zeros((njack, nz, nm))
-    mlo, mhi = np.zeros(nm), np.zeros(nm)
-    plt.clf()
-    fig, axes = plt.subplots(nm, nz, sharex=True, sharey=True, num=1)
-    fig.set_size_inches(8, 4)
-    fig.subplots_adjust(hspace=0, wspace=0)
-    print('Zmean Distance im  A   gamma   tmin  tmax  w_av')
-    for iz in range(nz):
-        for im in range(nm):
-            infile = f'{xdir}/z{iz}_m{im}.fits'
-            t = Table.read(infile)
-            with fits.open(infile) as hdul:
-                xi_jack = hdul[2].data
-            corr = wcorr.Corr1d()
-            corr.sep = t['meanr']
-            corr.est = np.vstack((t['xi'], xi_jack))
-            corr.err = t['sigma_xi']
-            corr.r1r2 = t['RR']
-            ax = axes[im, iz]
-            corr.plot(ax=ax)
-            popt, pcov = corr.fit_w(fit_range, p0, ax)
-            A = popt[0]
-            omg = 1 - popt[1]
-            mlo[im], mhi[im] = t.meta['MLO'], t.meta['MHI']
-            if im == 0:
-                ax.text(0.1, 1.05, f"z=[{t.meta['ZLO']:3.2f}, {t.meta['ZHI']:3.2f}]",
-                        transform=ax.transAxes)
-            if iz == nz-1:
-                ax.text(1.05, 0.5, f"m=[{mlo[im]:3.1f}, {mhi[im]:3.1f}]",
-                        transform=ax.transAxes)
-            tmin, tmax = 180/math.pi*rmin/d[iz], 180/math.pi*rmax/d[iz]
-            w_rt_av[iz, im] = A/omg*(tmax**omg - tmin**omg)
-            print(f'{zmean[iz]:4.3f}, {d[iz]:4.3f}, {im}, {popt[0]:4.3f}, {popt[1]:4.3f}, {tmin:4.3e}, {tmax:4.3e}, {w_rt_av[iz, im]:4.3f}')
-            ax.axvline(tmin, c='g')
-            ax.axvline(tmax, c='g')
-
-            # Fits to jackknife
-            for ijack in range(njack):
-                popt, pcov = corr.fit_w(fit_range, p0, ax, ijack=ijack+1)
-                A = popt[0]
-                omg = 1 - popt[1]
-                w_rt_av_jack[ijack, iz, im] = A/omg*(tmax**omg - tmin**omg)
-            print(np.array_str(w_rt_av_jack[:, iz, im], precision=3))
-    plt.loglog()
-    axes[nm-1, nz//2].set_xlabel(r'$\theta$ / degrees')
-    axes[nm//2, 0].set_ylabel(r'$w(\theta)$')
-    plt.show()
-
-    # N(z) in mag bins
+    zmean, pmz, pmz_err, mlo, mhi = wcorr.cluster_z(
+        adir, xdir, njack, nz, nm, fit_range, p0, rmin, rmax)
+    
+    # Scale to reference N(z) in mag bins
     t = Table.read(galfile)
     z = t['Z']
     mag = 22.5 - 2.5*np.log10(t['FLUX_Z_DERED'])
@@ -976,25 +884,15 @@ def cz_test(galfile='BGS_ANY_S_clustering.dat.fits',
         sel = (mlo[im] <= mag) * (mag < mhi[im])
         zhist, edges = np.histogram(z[sel], bins=np.linspace(0.0, 0.6, 13))
         ax.stairs(zhist, edges)
-        pmz = w_rt_av[:, im]/w_rr_av**0.5
-        pmz_jack = np.zeros((njack, nz))
-        for ijack in range(njack):
-            pmz_jack[ijack, :] = w_rt_av_jack[ijack, :, im]/w_rr_av_jack[ijack, :]**0.5
-        scale = zhist.sum()/pmz.sum()
-        pmz *= scale
-        pmz_jack *= scale
-        pmz_err = (njack-1)**0.5 * np.std(pmz_jack, axis=0)
-        print(zhist)
-        print(pmz)
-        print(pmz_err)
-        print(pmz_jack)
-        ax.errorbar(zmean, pmz, pmz_err)
+        scale = zhist.sum()/pmz[:, im].sum()
+        pmz[:, im] *= scale
+        pmz_err[:, im] *= scale
+        ax.errorbar(zmean, pmz[:, im], pmz_err[:, im])
         ax.text(0.1, 1.05, f"m=[{mlo[im]}, {mhi[im]}]",
                 transform=ax.transAxes)
     axes[nm//2].set_xlabel(r'Redshift')
     axes[0].set_ylabel(r'$N(z)$')
     plt.show()
-
 
 def treecorr_test(ngal=1000, nran=10000, tmin=0.01, tmax=1, nbins=10):
     gcat1 = treecorr.Catalog(ra=rng.random(ngal), dec=rng.random(ngal),
