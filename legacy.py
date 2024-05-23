@@ -53,57 +53,57 @@ def select(maglim=22,
 
     # Extract Legacy sources with mag_z < maglim from sweep files
     # Ignore i-band data as coverage is incomplete
-    sweeps = np.array(glob.glob(path + 'sweep*.fits'))
-    ra, dec, mag_g, mag_r, mag_z, ltype = np.array(()), np.array(()), np.array(()), np.array(()), np.array(()), np.array(())
-    for sweep in sweeps:
-        t = Table.read(sweep)
-        # Mask cuts
-        frac_g = ((t['FRACMASKED_G'] < 0.4) * (t['FRACIN_G'] > 0.3) * (t['FRACFLUX_G'] < 5))
-        frac_r = ((t['FRACMASKED_R'] < 0.4) * (t['FRACIN_R'] > 0.3) * (t['FRACFLUX_R'] < 5))
-        frac_z = ((t['FRACMASKED_Z'] < 0.4) * (t['FRACIN_Z'] > 0.3) * (t['FRACFLUX_Z'] < 5))
-        frac = (frac_g * frac_r) + (frac_g * frac_z) + (frac_r * frac_z)
-        sel = ((t['TYPE'] != 'DUP') * (t['MASKBITS'] == 0) * frac)
-        t = t[sel]
+    # sweeps = np.array(glob.glob(path + 'sweep*.fits'))
+    # ra, dec, mag_g, mag_r, mag_z, ltype = np.array(()), np.array(()), np.array(()), np.array(()), np.array(()), np.array(())
+    # for sweep in sweeps:
+    #     t = Table.read(sweep)
+    #     # Mask cuts
+    #     frac_g = ((t['FRACMASKED_G'] < 0.4) * (t['FRACIN_G'] > 0.3) * (t['FRACFLUX_G'] < 5))
+    #     frac_r = ((t['FRACMASKED_R'] < 0.4) * (t['FRACIN_R'] > 0.3) * (t['FRACFLUX_R'] < 5))
+    #     frac_z = ((t['FRACMASKED_Z'] < 0.4) * (t['FRACIN_Z'] > 0.3) * (t['FRACFLUX_Z'] < 5))
+    #     frac = (frac_g * frac_r) + (frac_g * frac_z) + (frac_r * frac_z)
+    #     sel = ((t['TYPE'] != 'DUP') * (t['MASKBITS'] == 0) * frac)
+    #     t = t[sel]
         
-        # Mag and colour cuts
-        flux_g = t['FLUX_G']/t['MW_TRANSMISSION_G']
-        flux_r = t['FLUX_R']/t['MW_TRANSMISSION_R']
-        flux_z = t['FLUX_Z']/t['MW_TRANSMISSION_Z']
-        good = ((flux_g > 0) * (flux_g < 1e6) * (flux_r > 0) * (flux_r < 1e6) *
-                (flux_z > 0) * (flux_z < 1e6))
-        t = t[good]
-        magg = 22.5 - 2.5*np.log10(flux_g[good])
-        magr = 22.5 - 2.5*np.log10(flux_r[good])
-        magz = 22.5 - 2.5*np.log10(flux_z[good])
-        sel = (magz < maglim) * (magg - magr > -1) * (magg - magr < 4) * (magr - magz > -1) * (magr - magz < 4)
-        t = t[sel]        
-        magg = magg[sel]
-        magr = magr[sel]
-        magz = magz[sel]
+    #     # Mag and colour cuts
+    #     flux_g = t['FLUX_G']/t['MW_TRANSMISSION_G']
+    #     flux_r = t['FLUX_R']/t['MW_TRANSMISSION_R']
+    #     flux_z = t['FLUX_Z']/t['MW_TRANSMISSION_Z']
+    #     good = ((flux_g > 0) * (flux_g < 1e6) * (flux_r > 0) * (flux_r < 1e6) *
+    #             (flux_z > 0) * (flux_z < 1e6))
+    #     t = t[good]
+    #     magg = 22.5 - 2.5*np.log10(flux_g[good])
+    #     magr = 22.5 - 2.5*np.log10(flux_r[good])
+    #     magz = 22.5 - 2.5*np.log10(flux_z[good])
+    #     sel = (magz < maglim) * (magg - magr > -1) * (magg - magr < 4) * (magr - magz > -1) * (magr - magz < 4)
+    #     t = t[sel]        
+    #     magg = magg[sel]
+    #     magr = magr[sel]
+    #     magz = magz[sel]
         
-        ra = np.hstack((ra, t['RA']))
-        dec = np.hstack((dec, t['DEC']))
-        mag_g = np.hstack((mag_g, magg))
-        mag_r = np.hstack((mag_r, magr))
-        mag_z = np.hstack((mag_z, magz))
-        ltype = np.hstack((ltype, t['TYPE']))
-        print(sweep, len(mag_z))
+    #     ra = np.hstack((ra, t['RA']))
+    #     dec = np.hstack((dec, t['DEC']))
+    #     mag_g = np.hstack((mag_g, magg))
+    #     mag_r = np.hstack((mag_r, magr))
+    #     mag_z = np.hstack((mag_z, magz))
+    #     ltype = np.hstack((ltype, t['TYPE']))
+    #     print(sweep, len(mag_z))
 
-    c = SkyCoord(ra=ra, dec=dec, frame='icrs', unit='deg')
-    glat = c.galactic.b
+    # c = SkyCoord(ra=ra, dec=dec, frame='icrs', unit='deg')
+    # glat = c.galactic.b
     
-    # Write out the selected galaxies
-    t = Table((ra, dec, mag_g, mag_r, mag_z, ltype), names=('RA', 'DEC', 'G_MAG', 'R_MAG', 'Z_MAG', 'LTYPE'))
-    t[glat > 0].write(galout.format('ngc'), overwrite=True)
-    t[glat < 0].write(galout.format('sgc'), overwrite=True)
+    # # Write out the selected galaxies
+    # t = Table((ra, dec, mag_g, mag_r, mag_z, ltype), names=('RA', 'DEC', 'G_MAG', 'R_MAG', 'Z_MAG', 'LTYPE'))
+    # t[glat > 0].write(galout.format('ngc'), overwrite=True)
+    # t[glat < 0].write(galout.format('sgc'), overwrite=True)
     
-    print(len(ra), 'total legacy sources')
+    # print(len(ra), 'total legacy sources')
     
     # Now the randoms
     for iran in range(20):
         t = Table.read(ranfile.format(iran))
         ntot = len(t)
-        sel = (t['MASKBITS'] == 0) * (NOBS_G > 0) * (NOBS_R > 0) * (NOBS_Z > 0)
+        sel = (t['MASKBITS'] == 0) * (t['NOBS_G'] > 0) * (t['NOBS_R'] > 0) * (t['NOBS_Z'] > 0)
         t = t[sel]
         nsel = len(t)
         t = Table((t['RA'], t['DEC']), names=('RA', 'DEC'))
