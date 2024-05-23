@@ -117,7 +117,7 @@ def select(maglim=22,
 def sdss_wcounts(path='/global/cfs/cdirs/cosmo/data/sdss/dr17/eboss/lss/catalogs/DR16/',
                  galfile='eBOSS_LRGpCMASS_clustering_data-NGC-vDR16.fits',
                  ranfile='eBOSS_LRGpCMASS_clustering_random-NGC-vDR16.fits',
-                 out_path='/pscratch/sd/l/loveday/sdss/LRG_w_z/',
+                 out_path='/pscratch/sd/l/loveday/sdss/NGC/LRG_w_z/',
                  tmin=0.001, tmax=10, nbins=20,
                  zbins=np.linspace(0.6, 1.0, 9), plotdist='LRG.png'):
     """SDSS angular auto-pair counts in redshift bins."""
