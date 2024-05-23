@@ -53,51 +53,51 @@ def select(maglim=22,
 
     # Extract Legacy sources with mag_z < maglim from sweep files
     # Ignore i-band data as coverage is incomplete
-    # sweeps = np.array(glob.glob(path + 'sweep*.fits'))
-    # ra, dec, mag_g, mag_r, mag_z, ltype = np.array(()), np.array(()), np.array(()), np.array(()), np.array(()), np.array(())
-    # for sweep in sweeps:
-    #     t = Table.read(sweep)
-    #     # Mask cuts
-    #     frac_g = ((t['FRACMASKED_G'] < 0.4) * (t['FRACIN_G'] > 0.3) * (t['FRACFLUX_G'] < 5))
-    #     frac_r = ((t['FRACMASKED_R'] < 0.4) * (t['FRACIN_R'] > 0.3) * (t['FRACFLUX_R'] < 5))
-    #     frac_z = ((t['FRACMASKED_Z'] < 0.4) * (t['FRACIN_Z'] > 0.3) * (t['FRACFLUX_Z'] < 5))
-    #     frac = (frac_g * frac_r) + (frac_g * frac_z) + (frac_r * frac_z)
-    #     sel = ((t['TYPE'] != 'DUP') * (t['MASKBITS'] == 0) * frac)
-    #     t = t[sel]
+    sweeps = np.array(glob.glob(path + 'sweep*.fits'))
+    ra, dec, mag_g, mag_r, mag_z, ltype = np.array(()), np.array(()), np.array(()), np.array(()), np.array(()), np.array(())
+    for sweep in sweeps:
+        t = Table.read(sweep)
+        # Mask cuts
+        frac_g = ((t['FRACMASKED_G'] < 0.4) * (t['FRACIN_G'] > 0.3) * (t['FRACFLUX_G'] < 5))
+        frac_r = ((t['FRACMASKED_R'] < 0.4) * (t['FRACIN_R'] > 0.3) * (t['FRACFLUX_R'] < 5))
+        frac_z = ((t['FRACMASKED_Z'] < 0.4) * (t['FRACIN_Z'] > 0.3) * (t['FRACFLUX_Z'] < 5))
+        frac = (frac_g * frac_r) + (frac_g * frac_z) + (frac_r * frac_z)
+        sel = ((t['TYPE'] != 'DUP') * (t['MASKBITS'] == 0) * frac)
+        t = t[sel]
         
-    #     # Mag and colour cuts
-    #     flux_g = t['FLUX_G']/t['MW_TRANSMISSION_G']
-    #     flux_r = t['FLUX_R']/t['MW_TRANSMISSION_R']
-    #     flux_z = t['FLUX_Z']/t['MW_TRANSMISSION_Z']
-    #     good = ((flux_g > 0) * (flux_g < 1e6) * (flux_r > 0) * (flux_r < 1e6) *
-    #             (flux_z > 0) * (flux_z < 1e6))
-    #     t = t[good]
-    #     magg = 22.5 - 2.5*np.log10(flux_g[good])
-    #     magr = 22.5 - 2.5*np.log10(flux_r[good])
-    #     magz = 22.5 - 2.5*np.log10(flux_z[good])
-    #     sel = (magz < maglim) * (magg - magr > -1) * (magg - magr < 4) * (magr - magz > -1) * (magr - magz < 4)
-    #     t = t[sel]        
-    #     magg = magg[sel]
-    #     magr = magr[sel]
-    #     magz = magz[sel]
+        # Mag and colour cuts
+        flux_g = t['FLUX_G']/t['MW_TRANSMISSION_G']
+        flux_r = t['FLUX_R']/t['MW_TRANSMISSION_R']
+        flux_z = t['FLUX_Z']/t['MW_TRANSMISSION_Z']
+        good = ((flux_g > 0) * (flux_g < 1e6) * (flux_r > 0) * (flux_r < 1e6) *
+                (flux_z > 0) * (flux_z < 1e6))
+        t = t[good]
+        magg = 22.5 - 2.5*np.log10(flux_g[good])
+        magr = 22.5 - 2.5*np.log10(flux_r[good])
+        magz = 22.5 - 2.5*np.log10(flux_z[good])
+        sel = (magz < maglim) * (magg - magr > -1) * (magg - magr < 4) * (magr - magz > -1) * (magr - magz < 4)
+        t = t[sel]        
+        magg = magg[sel]
+        magr = magr[sel]
+        magz = magz[sel]
         
-    #     ra = np.hstack((ra, t['RA']))
-    #     dec = np.hstack((dec, t['DEC']))
-    #     mag_g = np.hstack((mag_g, magg))
-    #     mag_r = np.hstack((mag_r, magr))
-    #     mag_z = np.hstack((mag_z, magz))
-    #     ltype = np.hstack((ltype, t['TYPE']))
-    #     print(sweep, len(mag_z))
+        ra = np.hstack((ra, t['RA']))
+        dec = np.hstack((dec, t['DEC']))
+        mag_g = np.hstack((mag_g, magg))
+        mag_r = np.hstack((mag_r, magr))
+        mag_z = np.hstack((mag_z, magz))
+        ltype = np.hstack((ltype, t['TYPE']))
+        print(sweep, len(mag_z))
 
-    # c = SkyCoord(ra=ra, dec=dec, frame='icrs', unit='deg')
-    # glat = c.galactic.b
+    c = SkyCoord(ra=ra, dec=dec, frame='icrs', unit='deg')
+    glat = c.galactic.b
     
-    # # Write out the selected galaxies
-    # t = Table((ra, dec, mag_g, mag_r, mag_z, ltype), names=('RA', 'DEC', 'G_MAG', 'R_MAG', 'Z_MAG', 'LTYPE'))
-    # t[glat > 0].write(galout.format('ngc'), overwrite=True)
-    # t[glat < 0].write(galout.format('sgc'), overwrite=True)
+    # Write out the selected galaxies
+    t = Table((ra, dec, mag_g, mag_r, mag_z, ltype), names=('RA', 'DEC', 'G_MAG', 'R_MAG', 'Z_MAG', 'LTYPE'))
+    t[glat > 0].write(galout.format('ngc'), overwrite=True)
+    t[glat < 0].write(galout.format('sgc'), overwrite=True)
     
-    # print(len(ra), 'total legacy sources')
+    print(len(ra), 'total legacy sources')
     
     # Now the randoms
     for iran in range(20):
@@ -112,6 +112,76 @@ def select(maglim=22,
         t[glat > 0].write(ranout.format('ngc', iran), overwrite=True)
         t[glat < 0].write(ranout.format('sgc', iran), overwrite=True)
         print(iran, nsel, 'out of', ntot, 'randoms selected')
+
+
+def sdss_wcounts(path='/global/cfs/cdirs/cosmo/data/sdss/dr17/eboss/lss/catalogs/DR16/',
+                 galfile='eBOSS_LRGpCMASS_clustering_data-NGC-vDR16.fits',
+                 ranfile='eBOSS_LRGpCMASS_clustering_random-NGC-vDR16.fits',
+                 out_path='/pscratch/sd/l/loveday/sdss/LRG_w_z/',
+                 tmin=0.001, tmax=10, nbins=20,
+                 zbins=np.linspace(0.6, 1.0, 9), plotdist='LRG.png'):
+    """SDSS angular auto-pair counts in redshift bins."""
+
+    def create_cat(infile):
+        """Create catalogue from specified input file."""
+        t = Table.read(path + infile)
+        ra, dec, z = t['RA'], t['DEC'], t['Z']
+        cat = wcorr.Cat(ra, dec)
+        cat.z = z
+
+        return cat
+
+    bins = np.logspace(np.log10(tmin), np.log10(tmax), nbins + 1)
+    tcen = 10**(0.5*np.diff(np.log10(bins)) + np.log10(bins[:-1]))
+
+    galcat = create_cat(galfile)
+    rancat = create_cat(ranfile)
+
+    rcat = treecorr.Catalog(ra=rancat.ra, dec=rancat.dec,
+                            ra_units='deg', dec_units='deg',
+                            npatch=npatch)
+    print('random cat: ', rancat.nobj)
+    rr = treecorr.NNCorrelation(min_sep=tmin, max_sep=tmax, nbins=nbins,
+                                sep_units='degrees') #, var_method='jackknife')
+    rr.process(rcat)
+
+    for iz in range(len(zbins) - 1):
+        zlo, zhi = zbins[iz], zbins[iz+1]
+        sel = (zlo <= galcat.z) * (galcat.z < zhi)
+        zmean = np.mean(galcat.z[sel])
+        gcat = treecorr.Catalog(ra=galcat.ra[sel], dec=galcat.dec[sel],
+                                 ra_units='deg', dec_units='deg',
+                                 patch_centers=rcat.patch_centers)
+
+        if plotdist and iz==0:
+            fig, axes = plt.subplots(1, 2, sharex=True, sharey=True, num=1)
+            fig.set_size_inches(10, 5)
+            fig.subplots_adjust(hspace=0, wspace=0)
+            axes[0].scatter(gcat.ra, gcat.dec, c=gcat.patch, s=0.1)
+            axes[1].scatter(rcat.ra, rcat.dec, c=rcat.patch, s=0.1)
+            plt.show()
+            plt.savefig(out_path + plotdist)
+
+        dr = treecorr.NNCorrelation(min_sep=tmin, max_sep=tmax, nbins=nbins,
+                                  sep_units='degrees') #, var_method='jackknife')
+        dr.process(gcat, rcat)
+        dd = treecorr.NNCorrelation(
+            min_sep=tmin, max_sep=tmax, nbins=nbins,
+            sep_units='degrees', var_method='jackknife')
+        dd.process(gcat)
+        dd.calculateXi(rr=rr, dr=dr)
+        xi_jack, w = dd.build_cov_design_matrix('jackknife')
+        outfile = f'{out_path}z{iz}.fits'
+        dd.write(outfile, rr=rr, dr=dr)
+        with fits.open(outfile, mode='update') as hdul:
+            hdr = hdul[1].header
+            hdr['zlo'] = zlo
+            hdr['zhi'] = zhi
+            hdr['zmean'] = zmean
+            hdr['Ngal'] = gcat.nobj
+            hdr['Nran'] = rcat.nobj
+            hdul.append(fits.PrimaryHDU(xi_jack))
+            hdul.flush()
 
 
 def wcounts(galfiles=['sweep-000m005-005p000.fits',
