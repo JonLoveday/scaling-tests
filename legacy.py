@@ -21,6 +21,7 @@ import Corrfunc
 # from Corrfunc.utils import convert_3d_counts_to_cf
 import pdb
 import pymangle
+import treecorr
 
 import calc_kcor
 import util
