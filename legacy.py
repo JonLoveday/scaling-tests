@@ -37,6 +37,13 @@ cosmo = util.CosmoLookup(h, Om0)
 solid_angle = 1
 solid_angle_north = 1
 
+def select_dr9(maglim=22,
+           path='/global/cfs/cdirs/cosmo/data/legacysurvey/dr9/north/sweep/9.0/',
+           ranfile='/global/cfs/cdirs/cosmo/data/legacysurvey/dr9/north/randoms/randoms-north-1-{}.fits',
+           galout='/pscratch/sd/l/loveday/Legacy/9.0/legacy_{}.fits',
+           ranout='/pscratch/sd/l/loveday/Legacy/9.0/legacy_{}_ran-{}.fits'):
+    select(maglim, path, ranfile, galout, ranout)
+
 def select(maglim=22,
            path='/global/cfs/cdirs/cosmo/data/legacysurvey/dr10/south/sweep/10.1/',
            ranfile='/global/cfs/cdirs/cosmo/data/legacysurvey/dr10/south/randoms/randoms-south-1-{}.fits',
@@ -93,7 +100,6 @@ def select(maglim=22,
     print(len(ra), 'total legacy sources')
     
     # Now the randoms
-    # Npath = '/global/cfs/cdirs/cosmo/data/legacysurvey/dr10/south/randoms/'
     for iran in range(20):
         t = Table.read(ranfile.format(iran))
         ntot = len(t)

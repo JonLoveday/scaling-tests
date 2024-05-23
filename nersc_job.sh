@@ -11,6 +11,6 @@
 #conda activate jon
 python <<EOF
 import legacy
-legacy.select()
+legacy.select_dr9()
 EOF
 
