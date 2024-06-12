@@ -24,6 +24,7 @@ import pymangle
 import treecorr
 
 import calc_kcor
+import cluster_z
 import util
 import wcorr
 
@@ -867,7 +868,7 @@ def cz_test(galfile='BGS_ANY_S_clustering.dat.fits',
             p0=[0.05, 1.7], rmin=0.01, rmax=10):
     """Test cluster-z on DESI alone."""
 
-    zmean, pmz, pmz_err, mlo, mhi = wcorr.cluster_z(
+    zmean, pmz, pmz_err, mlo, mhi = cluster_z.Nz(
         adir, xdir, njack, nz, nm, fit_range, p0, rmin, rmax)
     
     # Scale to reference N(z) in mag bins
@@ -922,3 +923,67 @@ def treecorr_test(ngal=1000, nran=10000, tmin=0.01, tmax=1, nbins=10):
     plt.scatter(gcat1.ra, gcat1.dec, c=gcat1.patch, s=1)
     plt.show()
 
+def desi_legacy_overlap(desi_ranfile='DESI/BGS_ANY_S_0_clustering.ran.fits',
+                        legacy_ranfile='Legacy/10.1/legacy_S_ran-0.fits'):
+    """Test cluster_z. overlap code."""
+
+    t = Table.read(desi_ranfile)
+    c1 = SkyCoord(t['RA'], t['DEC'], frame='icrs')
+    t = Table.read(legacy_ranfile)
+    c2 = SkyCoord(t['RA']*u.deg, t['DEC']*u.deg, frame='icrs')
+    hpmask = cluster_z.healpixMask(c1, c2)
+    
+def BGS_Legacy_cz_counts(spec_gal_file='DESI/BGS_ANY_S_clustering.dat.fits',
+                         spec_ran_file='DESI/BGS_ANY_S_0_clustering.ran.fits',
+                         phot_gal_file='Legacy/10.1/legacy_S.fits',
+                         phot_ran_file='Legacy/10.1/legacy_S_ran-0.fits',
+                         out_dir=''):
+    """DESI x Legacy pair counts for cluster_z."""
+
+    cluster_z.pair_counts(spec_gal_file, spec_ran_file, phot_gal_file, phot_ran_file, out_dir)
+    
+    
+def BGS_S_cz_counts(spec_gal_file='DESI/BGS_ANY_S_clustering.dat.fits',
+                  spec_ran_file='DESI/BGS_ANY_S_0_clustering.ran.fits',
+                  phot_gal_file='DESI/BGS_ANY_S_clustering.dat.fits',
+                  phot_ran_file='DESI/BGS_ANY_S_0_clustering.ran.fits',
+                  out_dir='DESI/BGS_cz', zbins=np.linspace(0.0, 0.6, 13),
+                  magbins=np.linspace(16, 20, 5)):
+    """DESI x DESI pair counts for cluster_z."""
+
+    def mag_fn(t):
+        """Return magnitudes from table."""
+        return 22.5 - 2.5*np.log10(t['FLUX_Z_DERED'].value)
+    
+    cluster_z.pair_counts(spec_gal_file, spec_ran_file, phot_gal_file, phot_ran_file, out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10)
+    
+
+def BGS_Legacy_S_cz_counts(spec_gal_file='DESI/BGS_ANY_S_clustering.dat.fits',
+                  spec_ran_file='DESI/BGS_ANY_S_0_clustering.ran.fits',
+                  phot_gal_file='Legacy/10.1/legacy_S.fits',
+                  phot_ran_file='Legacy/10.1/legacy_S_ran-0.fits',
+                  out_dir='DESI/BGS_Legacy_S_cz', zbins=np.linspace(0.0, 0.6, 13),
+                  magbins=np.linspace(16, 22, 7)):
+    """DESI x DESI pair counts for cluster_z."""
+
+    def mag_fn(t):
+        """Return magnitudes from table."""
+        return t['Z_MAG']
+    
+    cluster_z.pair_counts(spec_gal_file, spec_ran_file, phot_gal_file, phot_ran_file, out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10)
+    
+
+def BGS_N_cz_counts(spec_gal_file='DESI/BGS_ANY_N_clustering.dat.fits',
+                  spec_ran_file='DESI/BGS_ANY_N_0_clustering.ran.fits',
+                  phot_gal_file='DESI/BGS_ANY_N_clustering.dat.fits',
+                  phot_ran_file='DESI/BGS_ANY_N_0_clustering.ran.fits',
+                  out_dir='DESI/BGS_N_cz', zbins=np.linspace(0.0, 0.6, 13),
+                  magbins=np.linspace(16, 20, 5)):
+    """DESI x DESI pair counts for cluster_z."""
+
+    def mag_fn(t):
+        """Return magnitudes from table."""
+        return 22.5 - 2.5*np.log10(t['FLUX_Z_DERED'].value)
+    
+    cluster_z.pair_counts(spec_gal_file, spec_ran_file, phot_gal_file, phot_ran_file, out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10)
+    

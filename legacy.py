@@ -6,6 +6,7 @@ import multiprocessing as mp
 import numpy as np
 from numpy.polynomial import Polynomial
 from numpy.random import default_rng
+from pathlib import Path
 import pickle
 import matplotlib.pyplot as plt
 import scipy.optimize
@@ -115,6 +116,34 @@ def select(maglim=22,
         print(iran, nsel, 'out of', ntot, 'randoms selected')
 
 
+def cmass_N_Legacy_N_cz_counts(spec_gal_file='/global/cfs/cdirs/cosmo/data/sdss/dr12/boss/lss/galaxy_DR12v5_CMASSLOWZTOT_North.fits.gz',
+                  spec_ran_file='/global/cfs/cdirs/cosmo/data/sdss/dr12/boss/lss/random0_DR12v5_CMASSLOWZTOT_North.fits.gz',
+                  phot_gal_file='/pscratch/sd/l/loveday/Legacy/9.0/legacy_ngc.fits',
+                  phot_ran_file='/pscratch/sd/l/loveday/Legacy/9.0/legacy_ngc_ran-0.fits',
+                  out_dir='/pscratch/sd/l/loveday/Legacy/cmass_N_Legacy_N', zbins=np.linspace(0.0, 0.8, 17),
+                  magbins=np.linspace(16, 22, 7)):
+
+    def mag_fn(t):
+        """Return magnitudes from table."""
+        return t['Z_MAG']
+    
+    cluster_z.pair_counts(spec_gal_file, spec_ran_file, phot_gal_file, phot_ran_file, out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10,
+                          heal_plot=out_dir + '/heal_plot.png',
+                          patch_plot=out_dir + '/patch_plot.png')
+    
+def sdss_wcounts_boss(path='/global/cfs/cdirs/cosmo/data/sdss/dr12/boss/lss/',
+                 galfile='galaxy_DR12v5_CMASSLOWZTOT_North.fits.gz',
+                 ranfile='random0_DR12v5_CMASSLOWZTOT_North.fits.gz',
+                 out_path='/pscratch/sd/l/loveday/sdss/NGC/BOSS_w_z/',
+                 tmin=0.001, tmax=10, nbins=20, npatch=20,
+                 zbins=np.linspace(0.0, 0.8, 17), plotdist='BOSS.png'):
+    sdss_wcounts(path,
+                 galfile,
+                 ranfile,
+                 out_path,
+                 tmin, 10, nbins, npatch,
+                 zbins, plotdist)
+
 def sdss_wcounts(path='/global/cfs/cdirs/cosmo/data/sdss/dr17/eboss/lss/catalogs/DR16/',
                  galfile='eBOSS_LRGpCMASS_clustering_data-NGC-vDR16.fits',
                  ranfile='eBOSS_LRGpCMASS_clustering_random-NGC-vDR16.fits',
@@ -131,6 +160,8 @@ def sdss_wcounts(path='/global/cfs/cdirs/cosmo/data/sdss/dr17/eboss/lss/catalogs
         cat.z = z
 
         return cat
+
+    Path(out_path).mkdir(parents=True, exist_ok=True)
 
     bins = np.logspace(np.log10(tmin), np.log10(tmax), nbins + 1)
     tcen = 10**(0.5*np.diff(np.log10(bins)) + np.log10(bins[:-1]))
