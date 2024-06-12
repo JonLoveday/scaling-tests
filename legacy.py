@@ -132,12 +132,14 @@ def cmass_N_Legacy_N_cz_counts(spec_gal_file='/global/cfs/cdirs/cosmo/data/sdss/
                           heal_plot=out_dir + '/heal_plot.png',
                           patch_plot=out_dir + '/patch_plot.png')
     
-def lrg_N_Legacy_N_cz_counts(spec_gal_file='/global/cfs/cdirs/cosmo/data/sdss/dr12/boss/lss/galaxy_DR12v5_CMASSLOWZTOT_North.fits.gz',
-                  spec_ran_file='/global/cfs/cdirs/cosmo/data/sdss/dr12/boss/lss/random0_DR12v5_CMASSLOWZTOT_North.fits.gz',
-                  phot_gal_file='/pscratch/sd/l/loveday/Legacy/9.0/legacy_ngc.fits',
-                  phot_ran_file='/pscratch/sd/l/loveday/Legacy/9.0/legacy_ngc_ran-0.fits',
-                  out_dir='/pscratch/sd/l/loveday/Legacy/cmass_N_Legacy_N', zbins=np.linspace(0.0, 0.8, 17),
-                  magbins=np.linspace(16, 22, 7)):
+def lrg_N_Legacy_N_cz_counts(
+        spec_gal_file='/global/cfs/cdirs/cosmo/data/sdss/dr17/eboss/lss/catalogs/DR16/eBOSS_LRG_clustering_data-NGC-vDR16.fits',
+        spec_ran_file='/global/cfs/cdirs/cosmo/data/sdss/dr17/eboss/lss/catalogs/DR16/eBOSS_LRG_clustering_random-NGC-vDR16.fits',
+        phot_gal_file='/pscratch/sd/l/loveday/Legacy/9.0/legacy_ngc.fits',
+        phot_ran_file='/pscratch/sd/l/loveday/Legacy/9.0/legacy_ngc_ran-0.fits',
+        out_dir='/pscratch/sd/l/loveday/Legacy/lrg_N_Legacy_N',
+        zbins=np.linspace(0.6, 1.0, 17),
+        magbins=np.linspace(16, 22, 7)):
 
     def mag_fn(t):
         """Return magnitudes from table."""

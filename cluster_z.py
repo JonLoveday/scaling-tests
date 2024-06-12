@@ -10,6 +10,7 @@ import glob
 import math
 import matplotlib.pyplot as plt
 import numpy as np
+from pathlib import Path
 import treecorr
 import wcorr
 
@@ -67,6 +68,9 @@ def pair_counts(spec_gal_file, spec_ran_file, phot_gal_file, phot_ran_file,
     """Perform paircounts using treecorr.
     Auto-counts for spec sample in redshift bins.
     Cross-corr between spec redshift bins and phot mag bins."""
+
+    # Create out_dir if it doesn't already exist
+    Path(out_dir).mkdir(parents=True, exist_ok=True)
 
     # Read in galaxy and random catalogues
     spec_gal = QTable.read(spec_gal_file)
