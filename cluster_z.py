@@ -206,7 +206,7 @@ def Nz(fit_range=[0.001, 1], p0=[0.05, 1.7], rmin=0.01, rmax=10):
     w_rr_av_jack = np.zeros((njack, nz))
     d, zmean = np.zeros(nz), np.zeros(nz)
     plt.clf()
-    fig, axes = plt.subplots(1, nz, sharex=True, sharey=True, num=1)
+    fig, axes = plt.subplots(1, nz, sharex=True, sharey=True)
     fig.set_size_inches(8, 4)
     fig.subplots_adjust(hspace=0, wspace=0)
     for iz in range(nz):
@@ -251,7 +251,7 @@ def Nz(fit_range=[0.001, 1], p0=[0.05, 1.7], rmin=0.01, rmax=10):
     w_rt_av_jack = np.zeros((njack, nz, nm))
     mlo, mhi = np.zeros(nm), np.zeros(nm)
     plt.clf()
-    fig, axes = plt.subplots(nm, nz, sharex=True, sharey=True, num=1)
+    fig, axes = plt.subplots(nm, nz, sharex=True, sharey=True)
     fig.set_size_inches(8, 4)
     fig.subplots_adjust(hspace=0, wspace=0)
     print('Zmean Distance im  A   gamma   tmin  tmax  w_av')
@@ -301,7 +301,7 @@ def Nz(fit_range=[0.001, 1], p0=[0.05, 1.7], rmin=0.01, rmax=10):
     pmz_err = np.zeros((nz, nm))
     pmz_jack = np.zeros((njack, nz, nm))
     plt.clf()
-    fig, axes = plt.subplots(1, nm, sharex=True, sharey=True, num=1)
+    fig, axes = plt.subplots(1, nm, sharex=True, sharey=True)
     fig.set_size_inches(8, 4)
     fig.subplots_adjust(hspace=0, wspace=0)
     for im in range(nm):
