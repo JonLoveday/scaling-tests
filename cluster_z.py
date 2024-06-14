@@ -64,7 +64,7 @@ def pair_counts(spec_gal_file, spec_ran_file, phot_gal_file, phot_ran_file,
                 out_dir, mag_fn, z_col='Z', 
                 magbins=np.linspace(18, 23, 6), zbins=np.linspace(0.0, 1.0, 11),
                 tmin=0.001, tmax=10, nbins=20, nran=1, npatch=9,
-                nside=64, f_occ=0.5, heal_plot=False, patch_plot=True):
+                nside=64, f_occ=0.5):
     """Perform paircounts using treecorr.
     Auto-counts for spec sample in redshift bins.
     Cross-corr between spec redshift bins and phot mag bins."""
@@ -80,10 +80,10 @@ def pair_counts(spec_gal_file, spec_ran_file, phot_gal_file, phot_ran_file,
     
     # Select points in overlap between catalogues
     hpmask = healpixMask(spec_ran, phot_ran)
-    spec_gal = spec_gal[hpmask.select(spec_gal, plot=heal_plot)]
-    spec_ran = spec_ran[hpmask.select(spec_ran, plot=heal_plot)]
-    phot_gal = phot_gal[hpmask.select(phot_gal, plot=heal_plot)]
-    phot_ran = phot_ran[hpmask.select(phot_ran, plot=heal_plot)]
+    spec_gal = spec_gal[hpmask.select(spec_gal, plot=out_dir+'/heal_sgal.png')]
+    spec_ran = spec_ran[hpmask.select(spec_ran, plot=out_dir+'/heal_sran.png')]
+    phot_gal = phot_gal[hpmask.select(phot_gal, plot=out_dir+'/heal_pgal.png')]
+    phot_ran = phot_ran[hpmask.select(phot_ran, plot=out_dir+'/heal_pran.png')]
 
     # spec-spec and spec-phot random-random counts
     bins = np.logspace(np.log10(tmin), np.log10(tmax), nbins + 1)
@@ -107,15 +107,14 @@ def pair_counts(spec_gal_file, spec_ran_file, phot_gal_file, phot_ran_file,
     z = spec_gal[z_col]
     rd_list = []
 
-    if patch_plot:
-        plt.clf()
-        fig, axes = plt.subplots(1, 2, sharex=True, sharey=True, num=1)
-        fig.set_size_inches(8, 4)
-        fig.subplots_adjust(hspace=0, wspace=0)
-        axes[0].scatter(spec_ran_cat.ra, spec_ran_cat.dec, c=spec_ran_cat.patch, s=0.1)
-        axes[1].scatter(phot_ran_cat.ra, phot_ran_cat.dec, c=phot_ran_cat.patch, s=0.1)
-        plt.show()
-        plt.savefig(patch_plot)
+    patch_plot = out_dir + '/patch.png'
+    fig, axes = plt.subplots(1, 2, sharex=True, sharey=True, num=1)
+    fig.set_size_inches(8, 4)
+    fig.subplots_adjust(hspace=0, wspace=0)
+    axes[0].scatter(spec_ran_cat.ra, spec_ran_cat.dec, c=spec_ran_cat.patch, s=0.1)
+    axes[1].scatter(phot_ran_cat.ra, phot_ran_cat.dec, c=phot_ran_cat.patch, s=0.1)
+    plt.show()
+    plt.savefig(patch_plot)
 
     # spec auto-pair counts in redshift bins
     for iz in range(len(zbins) - 1):
@@ -315,3 +314,35 @@ def Nz(fit_range=[0.001, 1], p0=[0.05, 1.7], rmin=0.01, rmax=10):
     plt.show()
 
     pickle.dump((zmean, pmz, pmz_err, mlo, mhi), open('Nz.pkl', 'w'))
+
+
+def Nz_average(indirs, magbins=np.linspace(16, 22, 7),
+               zbins=np.linspace(0.0, 1.1, 45)):
+    """Inverse-variance weighted average N(z) from pairs of tracers in indirs."""
+    nest, nz, nm = len(indirs), len(zbins) - 1, len(magbins) - 1
+    Pz, invvar = np.zeros((nest, nz, nm)), np.zeros((nest, nz, nm))
+    zstep = zbins[1] - zbins[0]
+    iest = 0
+    for indir in indirs:
+        (zmean, pmz, pmz_err, mlo, mhi) = pickle.load(open('Nz.pkl', 'r'))
+        assert nm == len(mlo)
+        for im in range(nm):
+            iz = 0
+            for z in zmean:
+                oz = int((z - zbins[0])/zstep)
+                Pz[iest, oz, im] = pmz[iz, im]
+                invvar[iest, oz, im] = pmz_err[iz, im]**-2
+        iest += 1
+    Pz_mean, invvar_sum = np.average(Pz, axis=0, weights=invvar, returned=True)
+     
+    fig, axes = plt.subplots(1, nm, sharex=True, sharey=True)
+    fig.set_size_inches(8, 4)
+    fig.subplots_adjust(hspace=0, wspace=0)
+    for im in range(nm):
+        ax = axes[im]
+        ax.errorbar(zbins[1:] - 0.5*zstep, Pz_mean, invvar_sum**-0.5)
+        ax.text(0.1, 1.05, f"m=[{mlo[im]}, {mhi[im]}]",
+                transform=ax.transAxes)
+    axes[nm//2].set_xlabel(r'Redshift')
+    axes[0].set_ylabel(r'$N(z)$')
+    plt.show()

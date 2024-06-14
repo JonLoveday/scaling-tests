@@ -155,23 +155,17 @@ def sdss_Legacy_cz_counts():
     out_dir = '/pscratch/sd/l/loveday/Legacy/main_ngc_Legacy_9'
     cluster_z.pair_counts(
         main_gal, main_ran, legacy_9_gal, legacy_9_ran,
-        out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10,
-        heal_plot=out_dir + '/heal_plot.png',
-        patch_plot=out_dir + '/patch_plot.png')
+        out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10)
 
     out_dir = '/pscratch/sd/l/loveday/Legacy/main_ngc_Legacy_10'
     cluster_z.pair_counts(
         main_gal, main_ran, legacy_10_ngc_gal, legacy_10_ngc_ran,
-        out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10,
-        heal_plot=out_dir + '/heal_plot.png',
-        patch_plot=out_dir + '/patch_plot.png')
+        out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10)
 
     out_dir = '/pscratch/sd/l/loveday/Legacy/main_sgc_Legacy_10'
     cluster_z.pair_counts(
-        main_gal, maion_ran, legacy_10_sgc_gal, legacy_10_sgc_ran,
-        out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10,
-        heal_plot=out_dir + '/heal_plot.png',
-        patch_plot=out_dir + '/patch_plot.png')
+        main_gal, main_ran, legacy_10_sgc_gal, legacy_10_sgc_ran,
+        out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10)
 
     # # CMASS low-z
     # zbins = np.linspace(0.0, 0.8, 17)
@@ -179,23 +173,17 @@ def sdss_Legacy_cz_counts():
     # out_dir = '/pscratch/sd/l/loveday/Legacy/cmass_ngc_Legacy_9'
     # cluster_z.pair_counts(
     #     cmass_ngc_gal, cmass_ngc_ran, legacy_9_gal, legacy_9_ran,
-    #     out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10,
-    #     heal_plot=out_dir + '/heal_plot.png',
-    #     patch_plot=out_dir + '/patch_plot.png')
+    #     out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10)
 
     # out_dir = '/pscratch/sd/l/loveday/Legacy/cmass_ngc_Legacy_10'
     # cluster_z.pair_counts(
     #     cmass_ngc_gal, cmass_ngc_ran, legacy_10_ngc_gal, legacy_10_ngc_ran,
-    #     out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10,
-    #     heal_plot=out_dir + '/heal_plot.png',
-    #     patch_plot=out_dir + '/patch_plot.png')
+    #     out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10)
 
     # out_dir = '/pscratch/sd/l/loveday/Legacy/cmass_sgc_Legacy_10'
     # cluster_z.pair_counts(
     #     cmass_sgc_gal, cmass_sgc_ran,legacy_10_sgc_gal, legacy_10_sgc_ran,
-    #     out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10,
-    #     heal_plot=out_dir + '/heal_plot.png',
-    #     patch_plot=out_dir + '/patch_plot.png')
+    #     out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10)
 
     # # LRGpCMASS 
     # zbins = np.linspace(0.6, 1.0, 17)
@@ -203,23 +191,17 @@ def sdss_Legacy_cz_counts():
     # out_dir = '/pscratch/sd/l/loveday/Legacy/lrg_ngc_Legacy_9'
     # cluster_z.pair_counts(
     #     lrg_ngc_gal, lrg_ngc_ran,legacy_9_gal, legacy_9_ran,
-    #     out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10,
-    #     heal_plot=out_dir + '/heal_plot.png',
-    #     patch_plot=out_dir + '/patch_plot.png')
+    #     out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10)
 
     # out_dir = '/pscratch/sd/l/loveday/Legacy/lrg_ngc_Legacy_10'
     # cluster_z.pair_counts(
     #     lrg_ngc_gal, lrg_ngc_ran, legacy_10_ngc_gal, legacy_10_ngc_ran,
-    #     out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10,
-    #     heal_plot=out_dir + '/heal_plot.png',
-    #     patch_plot=out_dir + '/patch_plot.png')
+    #     out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10)
 
     # out_dir = '/pscratch/sd/l/loveday/Legacy/lrg_sgc_Legacy_10'
     # cluster_z.pair_counts(
     #     lrg_sgc_gal, lrg_sgc_ran, legacy_10_sgc_gal, legacy_10_sgc_ran,
-    #     out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10,
-    #     heal_plot=out_dir + '/heal_plot.png',
-    #     patch_plot=out_dir + '/patch_plot.png')
+    #     out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10)
 
     # ELG 
     zbins = np.linspace(0.6, 1.1, 21)
@@ -227,30 +209,19 @@ def sdss_Legacy_cz_counts():
     out_dir = '/pscratch/sd/l/loveday/Legacy/elg_ngc_Legacy_9'
     cluster_z.pair_counts(
         elg_ngc_gal, elg_ngc_ran, legacy_9_gal, legacy_9_ran,
-        out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10,
-        heal_plot=out_dir + '/heal_plot.png',
-        patch_plot=out_dir + '/patch_plot.png')
+        out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10)
 
     out_dir = '/pscratch/sd/l/loveday/Legacy/elg_ngc_Legacy_10'
     cluster_z.pair_counts(
         elg_ngc_gal, elg_ngc_ran, legacy_10_ngc_gal, legacy_10_ngc_ran,
-        out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10,
-        heal_plot=out_dir + '/heal_plot.png',
-        patch_plot=out_dir + '/patch_plot.png')
+        out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10)
 
     out_dir = '/pscratch/sd/l/loveday/Legacy/elg_sgc_Legacy_10'
     cluster_z.pair_counts(
         elg_sgc_gal, elg_sgc_ran, legacy_10_sgc_gal, legacy_10_sgc_ran,
-        out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10,
-        heal_plot=out_dir + '/heal_plot.png',
-        patch_plot=out_dir + '/patch_plot.png')
+        out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10)
 
      
-def Nz_average(indirs, zbins=np.linspace(0.0, 1.1, 45)):
-    """Inverse-variance weighted average N(z) from pairs of tracers in indirs."""
-    for indir in indirs:
-        (zmean, pmz, pmz_err, mlo, mhi) = pickle.load(open('Nz.pkl', 'r'))
-
 def sdss_wcounts_boss(path='/global/cfs/cdirs/cosmo/data/sdss/dr12/boss/lss/',
                  galfile='galaxy_DR12v5_CMASSLOWZTOT_North.fits.gz',
                  ranfile='random0_DR12v5_CMASSLOWZTOT_North.fits.gz',
