@@ -133,8 +133,8 @@ def cmass_N_Legacy_N_cz_counts(spec_gal_file='/global/cfs/cdirs/cosmo/data/sdss/
                           patch_plot=out_dir + '/patch_plot.png')
     
 def lrg_N_Legacy_N_cz_counts(
-        spec_gal_file='/global/cfs/cdirs/cosmo/data/sdss/dr17/eboss/lss/catalogs/DR16/eBOSS_LRG_clustering_data-NGC-vDR16.fits',
-        spec_ran_file='/global/cfs/cdirs/cosmo/data/sdss/dr17/eboss/lss/catalogs/DR16/eBOSS_LRG_clustering_random-NGC-vDR16.fits',
+        spec_gal_file='/global/cfs/cdirs/cosmo/data/sdss/dr17/eboss/lss/catalogs/DR16/eBOSS_LRGpCMASS_clustering_data-NGC-vDR16.fits',
+        spec_ran_file='/global/cfs/cdirs/cosmo/data/sdss/dr17/eboss/lss/catalogs/DR16/eBOSS_LRGpCMASS_clustering_random-NGC-vDR16.fits',
         phot_gal_file='/pscratch/sd/l/loveday/Legacy/9.0/legacy_ngc.fits',
         phot_ran_file='/pscratch/sd/l/loveday/Legacy/9.0/legacy_ngc_ran-0.fits',
         out_dir='/pscratch/sd/l/loveday/Legacy/lrg_N_Legacy_N',
