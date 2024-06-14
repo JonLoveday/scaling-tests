@@ -11,6 +11,6 @@
 #conda activate jon
 python <<EOF
 import legacy
-legacy.lrg_N_Legacy_N_cz_counts()
+legacy.sdss_Legacy_cz_counts()
 EOF
 

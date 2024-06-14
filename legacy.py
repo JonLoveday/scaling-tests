@@ -117,37 +117,109 @@ def select(maglim=22,
         print(iran, nsel, 'out of', ntot, 'randoms selected')
 
 
-def cmass_N_Legacy_N_cz_counts(spec_gal_file='/global/cfs/cdirs/cosmo/data/sdss/dr12/boss/lss/galaxy_DR12v5_CMASSLOWZTOT_North.fits.gz',
-                  spec_ran_file='/global/cfs/cdirs/cosmo/data/sdss/dr12/boss/lss/random0_DR12v5_CMASSLOWZTOT_North.fits.gz',
-                  phot_gal_file='/pscratch/sd/l/loveday/Legacy/9.0/legacy_ngc.fits',
-                  phot_ran_file='/pscratch/sd/l/loveday/Legacy/9.0/legacy_ngc_ran-0.fits',
-                  out_dir='/pscratch/sd/l/loveday/Legacy/cmass_N_Legacy_N', zbins=np.linspace(0.0, 0.8, 17),
-                  magbins=np.linspace(16, 22, 7)):
+def sdss_Legacy_cz_counts():
+    """Cross correlate SDSS samples with Legacy."""
+
+    legacy_9_gal = '/pscratch/sd/l/loveday/Legacy/9.0/legacy_ngc.fits'
+    legacy_9_ran = '/pscratch/sd/l/loveday/Legacy/9.0/legacy_ngc_ran-0.fits'
+    legacy_10_ngc_gal = '/pscratch/sd/l/loveday/Legacy/10.1/legacy_ngc.fits'
+    legacy_10_ngc_ran = '/pscratch/sd/l/loveday/Legacy/10.1/legacy_ngc_ran-0.fits'
+    legacy_10_sgc_gal = '/pscratch/sd/l/loveday/Legacy/10.1/legacy_sgc.fits'
+    legacy_10_sgc_ran = '/pscratch/sd/l/loveday/Legacy/10.1/legacy_sgc_ran-0.fits'
+
+    cmass_ngc_gal = '/global/cfs/cdirs/cosmo/data/sdss/dr12/boss/lss/galaxy_DR12v5_CMASSLOWZTOT_North.fits.gz'
+    cmass_ngc_ran = '/global/cfs/cdirs/cosmo/data/sdss/dr12/boss/lss/random0_DR12v5_CMASSLOWZTOT_North.fits.gz'
+    cmass_sgc_gal = '/global/cfs/cdirs/cosmo/data/sdss/dr12/boss/lss/galaxy_DR12v5_CMASSLOWZTOT_South.fits.gz'
+    cmass_sgc_ran = '/global/cfs/cdirs/cosmo/data/sdss/dr12/boss/lss/random0_DR12v5_CMASSLOWZTOT_South.fits.gz'
+    
+    lrg_ngc_gal = '/global/cfs/cdirs/cosmo/data/sdss/dr17/eboss/lss/catalogs/DR16/eBOSS_LRGpCMASS_clustering_data-NGC-vDR16.fits'
+    lrg_ngc_ran = '/global/cfs/cdirs/cosmo/data/sdss/dr17/eboss/lss/catalogs/DR16/eBOSS_LRGpCMASS_clustering_random-NGC-vDR16.fits'
+    lrg_sgc_gal = '/global/cfs/cdirs/cosmo/data/sdss/dr17/eboss/lss/catalogs/DR16/eBOSS_LRGpCMASS_clustering_data-SGC-vDR16.fits'
+    lrg_sgc_ran = '/global/cfs/cdirs/cosmo/data/sdss/dr17/eboss/lss/catalogs/DR16/eBOSS_LRGpCMASS_clustering_random-SGC-vDR16.fits'
+    
+    elg_ngc_gal = '/global/cfs/cdirs/cosmo/data/sdss/dr17/eboss/lss/catalogs/DR16/eBOSS_ELG_clustering_data-NGC-vDR16.fits'
+    elg_ngc_ran = '/global/cfs/cdirs/cosmo/data/sdss/dr17/eboss/lss/catalogs/DR16/eBOSS_ELG_clustering_random-NGC-vDR16.fits'
+    elg_sgc_gal = '/global/cfs/cdirs/cosmo/data/sdss/dr17/eboss/lss/catalogs/DR16/eBOSS_ELG_clustering_data-SGC-vDR16.fits'
+    elg_sgc_ran = '/global/cfs/cdirs/cosmo/data/sdss/dr17/eboss/lss/catalogs/DR16/eBOSS_ELG_clustering_random-SGC-vDR16.fits'
 
     def mag_fn(t):
-        """Return magnitudes from table."""
+        """Legacy magnitudes."""
         return t['Z_MAG']
-    
-    cluster_z.pair_counts(spec_gal_file, spec_ran_file, phot_gal_file, phot_ran_file, out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10,
-                          heal_plot=out_dir + '/heal_plot.png',
-                          patch_plot=out_dir + '/patch_plot.png')
-    
-def lrg_N_Legacy_N_cz_counts(
-        spec_gal_file='/global/cfs/cdirs/cosmo/data/sdss/dr17/eboss/lss/catalogs/DR16/eBOSS_LRGpCMASS_clustering_data-NGC-vDR16.fits',
-        spec_ran_file='/global/cfs/cdirs/cosmo/data/sdss/dr17/eboss/lss/catalogs/DR16/eBOSS_LRGpCMASS_clustering_random-NGC-vDR16.fits',
-        phot_gal_file='/pscratch/sd/l/loveday/Legacy/9.0/legacy_ngc.fits',
-        phot_ran_file='/pscratch/sd/l/loveday/Legacy/9.0/legacy_ngc_ran-0.fits',
-        out_dir='/pscratch/sd/l/loveday/Legacy/lrg_N_Legacy_N',
-        zbins=np.linspace(0.6, 1.0, 17),
-        magbins=np.linspace(16, 22, 7)):
+    magbins = np.linspace(16, 22, 7)
 
-    def mag_fn(t):
-        """Return magnitudes from table."""
-        return t['Z_MAG']
-    
-    cluster_z.pair_counts(spec_gal_file, spec_ran_file, phot_gal_file, phot_ran_file, out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10,
-                          heal_plot=out_dir + '/heal_plot.png',
-                          patch_plot=out_dir + '/patch_plot.png')
+    # CMASS low-z
+    zbins = np.linspace(0.0, 0.8, 17)
+
+    out_dir = '/pscratch/sd/l/loveday/Legacy/cmass_ngc_Legacy_9'
+    cluster_z.pair_counts(
+        cmass_ngc_gal, cmass_ngc_ran,legacy_9_gal, legacy_9_ran,
+        out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10,
+        heal_plot=out_dir + '/heal_plot.png',
+        patch_plot=out_dir + '/patch_plot.png')
+
+    out_dir = '/pscratch/sd/l/loveday/Legacy/cmass_ngc_Legacy_10'
+    cluster_z.pair_counts(
+        cmass_ngc_gal, cmass_ngc_ran,legacy_10_gal, legacy_10_ran,
+        out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10,
+        heal_plot=out_dir + '/heal_plot.png',
+        patch_plot=out_dir + '/patch_plot.png')
+
+    out_dir = '/pscratch/sd/l/loveday/Legacy/cmass_sgc_Legacy_10'
+    cluster_z.pair_counts(
+        cmass_sgc_gal, cmass_sgc_ran,legacy_10_gal, legacy_10_ran,
+        out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10,
+        heal_plot=out_dir + '/heal_plot.png',
+        patch_plot=out_dir + '/patch_plot.png')
+
+    # LRGpCMASS 
+    zbins = np.linspace(0.6, 1.0, 17)
+
+    out_dir = '/pscratch/sd/l/loveday/Legacy/lrg_ngc_Legacy_9'
+    cluster_z.pair_counts(
+        lrg_ngc_gal, lrg_ngc_ran,legacy_9_gal, legacy_9_ran,
+        out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10,
+        heal_plot=out_dir + '/heal_plot.png',
+        patch_plot=out_dir + '/patch_plot.png')
+
+    out_dir = '/pscratch/sd/l/loveday/Legacy/lrg_ngc_Legacy_10'
+    cluster_z.pair_counts(
+        lrg_ngc_gal, lrg_ngc_ran,legacy_10_gal, legacy_10_ran,
+        out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10,
+        heal_plot=out_dir + '/heal_plot.png',
+        patch_plot=out_dir + '/patch_plot.png')
+
+    out_dir = '/pscratch/sd/l/loveday/Legacy/lrg_sgc_Legacy_10'
+    cluster_z.pair_counts(
+        lrg_sgc_gal, lrg_sgc_ran,legacy_10_gal, legacy_10_ran,
+        out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10,
+        heal_plot=out_dir + '/heal_plot.png',
+        patch_plot=out_dir + '/patch_plot.png')
+
+    # ELG 
+    zbins = np.linspace(0.6, 1.1, 21)
+
+    out_dir = '/pscratch/sd/l/loveday/Legacy/elg_ngc_Legacy_9'
+    cluster_z.pair_counts(
+        elg_ngc_gal, elg_ngc_ran,legacy_9_gal, legacy_9_ran,
+        out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10,
+        heal_plot=out_dir + '/heal_plot.png',
+        patch_plot=out_dir + '/patch_plot.png')
+
+    out_dir = '/pscratch/sd/l/loveday/Legacy/elg_ngc_Legacy_10'
+    cluster_z.pair_counts(
+        elg_ngc_gal, elg_ngc_ran,legacy_10_gal, legacy_10_ran,
+        out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10,
+        heal_plot=out_dir + '/heal_plot.png',
+        patch_plot=out_dir + '/patch_plot.png')
+
+    out_dir = '/pscratch/sd/l/loveday/Legacy/elg_sgc_Legacy_10'
+    cluster_z.pair_counts(
+        elg_sgc_gal, elg_sgc_ran,legacy_10_gal, legacy_10_ran,
+        out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10,
+        heal_plot=out_dir + '/heal_plot.png',
+        patch_plot=out_dir + '/patch_plot.png')
+
+     
     
 def sdss_wcounts_boss(path='/global/cfs/cdirs/cosmo/data/sdss/dr12/boss/lss/',
                  galfile='galaxy_DR12v5_CMASSLOWZTOT_North.fits.gz',
