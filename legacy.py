@@ -223,7 +223,8 @@ def sdss_Legacy_cz_counts():
 def Nz_average(indirs, zbins=np.linspace(0.0, 1.1, 45)):
     """Inverse-variance weighted average N(z) from pairs of tracers in indirs."""
     for indir in indirs:
-        
+        (zmean, pmz, pmz_err, mlo, mhi) = pickle.load(open('Nz.pkl', 'r'))
+
 def sdss_wcounts_boss(path='/global/cfs/cdirs/cosmo/data/sdss/dr12/boss/lss/',
                  galfile='galaxy_DR12v5_CMASSLOWZTOT_North.fits.gz',
                  ranfile='random0_DR12v5_CMASSLOWZTOT_North.fits.gz',
