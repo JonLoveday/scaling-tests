@@ -126,7 +126,9 @@ def sdss_Legacy_cz_counts():
     legacy_10_ngc_ran = '/pscratch/sd/l/loveday/Legacy/10.1/legacy_ngc_ran-0.fits'
     legacy_10_sgc_gal = '/pscratch/sd/l/loveday/Legacy/10.1/legacy_sgc.fits'
     legacy_10_sgc_ran = '/pscratch/sd/l/loveday/Legacy/10.1/legacy_sgc_ran-0.fits'
-
+    main_gal = '/pscratch/sd/l/loveday/sdss/post_catalog.dr72full0.fits'
+    main_ran = '/pscratch/sd/l/loveday/sdss/random-0.dr72full.fits.gz'
+    
     cmass_ngc_gal = '/global/cfs/cdirs/cosmo/data/sdss/dr12/boss/lss/galaxy_DR12v5_CMASSLOWZTOT_North.fits.gz'
     cmass_ngc_ran = '/global/cfs/cdirs/cosmo/data/sdss/dr12/boss/lss/random0_DR12v5_CMASSLOWZTOT_North.fits.gz'
     cmass_sgc_gal = '/global/cfs/cdirs/cosmo/data/sdss/dr12/boss/lss/galaxy_DR12v5_CMASSLOWZTOT_South.fits.gz'
@@ -146,6 +148,30 @@ def sdss_Legacy_cz_counts():
         """Legacy magnitudes."""
         return t['Z_MAG']
     magbins = np.linspace(16, 22, 7)
+
+    # Main sample
+    zbins = np.linspace(0.0, 0.3, 13)
+
+    out_dir = '/pscratch/sd/l/loveday/Legacy/main_ngc_Legacy_9'
+    cluster_z.pair_counts(
+        main_gal, main_ran, legacy_9_gal, legacy_9_ran,
+        out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10,
+        heal_plot=out_dir + '/heal_plot.png',
+        patch_plot=out_dir + '/patch_plot.png')
+
+    out_dir = '/pscratch/sd/l/loveday/Legacy/main_ngc_Legacy_10'
+    cluster_z.pair_counts(
+        main_gal, main_ran, legacy_10_ngc_gal, legacy_10_ngc_ran,
+        out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10,
+        heal_plot=out_dir + '/heal_plot.png',
+        patch_plot=out_dir + '/patch_plot.png')
+
+    out_dir = '/pscratch/sd/l/loveday/Legacy/main_sgc_Legacy_10'
+    cluster_z.pair_counts(
+        main_gal, maion_ran, legacy_10_sgc_gal, legacy_10_sgc_ran,
+        out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10,
+        heal_plot=out_dir + '/heal_plot.png',
+        patch_plot=out_dir + '/patch_plot.png')
 
     # # CMASS low-z
     # zbins = np.linspace(0.0, 0.8, 17)
@@ -200,7 +226,7 @@ def sdss_Legacy_cz_counts():
 
     out_dir = '/pscratch/sd/l/loveday/Legacy/elg_ngc_Legacy_9'
     cluster_z.pair_counts(
-        elg_ngc_gal, elg_ngc_ran,legacy_9_gal, legacy_9_ran,
+        elg_ngc_gal, elg_ngc_ran, legacy_9_gal, legacy_9_ran,
         out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10,
         heal_plot=out_dir + '/heal_plot.png',
         patch_plot=out_dir + '/patch_plot.png')

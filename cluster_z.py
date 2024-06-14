@@ -45,7 +45,7 @@ class healpixMask:
 
     def select(self, cat, plot=False):
         """Return indices to cat objects within healpix mask."""
-        coords = SkyCoord(cat['RA'], cat['DEC'], unit='deg', frame='icrs')
+        coords = SkyCoord(cat['RA'].value, cat['DEC'].value, unit='deg', frame='icrs')
         pixels = self.hp.lonlat_to_healpix(coords.ra, coords.dec)
         sel = np.isin(pixels, self.usepix)
         if plot:
