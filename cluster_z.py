@@ -33,7 +33,7 @@ class healpixMask:
 
     def occupied_pixels(self, cat, f_occ):
         """Returns list of occupied pixels."""
-        coords = SkyCoord(cat['RA'], cat['DEC'], unit='deg', frame='icrs')
+        coords = SkyCoord(cat['RA'].value, cat['DEC'].value, unit='deg', frame='icrs')
         pixels, counts = np.unique(
             self.hp.lonlat_to_healpix(coords.ra, coords.dec),
             return_counts=True)
@@ -314,4 +314,4 @@ def Nz(fit_range=[0.001, 1], p0=[0.05, 1.7], rmin=0.01, rmax=10):
     axes[0].set_ylabel(r'$N(z)$')
     plt.show()
 
-    return zmean, pmz, pmz_err, mlo, mhi
+    pickle.dump((zmean, pmz, pmz_err, mlo, mhi), open('Nz.pkl', 'w'))
