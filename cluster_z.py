@@ -343,7 +343,7 @@ def Nz_average(indirs, magbins=np.linspace(16, 22, 7),
     fig.subplots_adjust(hspace=0, wspace=0)
     for im in range(nm):
         ax = axes[im]
-        ax.errorbar(zbins[1:] - 0.5*zstep, Pz_mean, invvar_sum**-0.5)
+        ax.errorbar(zbins[1:] - 0.5*zstep, Pz_mean[:, im], invvar_sum[:, im]**-0.5)
         ax.text(0.1, 1.05, f"m=[{mlo[im]}, {mhi[im]}]",
                 transform=ax.transAxes)
     axes[nm//2].set_xlabel(r'Redshift')
