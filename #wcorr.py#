@@ -278,9 +278,238 @@ class Corr1d(object):
             if ax:
                 ax.plot(self.sep[sel], power_law(self.sep[sel], *popt), color=color)
         except (RuntimeError, TypeError):
+# import os
+# os.environ["OMP_NUM_THREADS"] = "1"  # avoid clash with multiprocessing
+import pandas as pd
+import pdb
+import pickle
+import pylab as plt
+import scipy.optimize
+import subprocess
+from astropy import constants as const
+from astropy.coordinates import SkyCoord
+from astropy.cosmology import WMAP9 as cosmo
+from astropy.io import fits
+from astropy.table import Table
+from astropy import units as u
+import Corrfunc
+# import Corrfunc.mocks
+# from Corrfunc.utils import convert_3d_counts_to_cf
+import multiprocessing as mp
+import pymangle
+
+import calc_kcor
+import limber
+import util
+
+ln10 = math.log(10)
+rng = default_rng()
+
+class Cat(object):
+    """Set of galaxies or random points."""
+
+    def __init__(self, ra, dec, r=None, sub=None, jack=None, nthreads=2):
+        self.nobj = len(ra)
+        self.ra = ra
+        self.dec = dec
+        if (r is not None):
+            self.r = r
+        if (sub is not None):
+            self.sub = sub
+            self.nsub = np.max(sub) + 1
+        else:
+            self.nsub = 0
+        if (jack is not None):
+            self.jack = jack
+        self.nthreads = nthreads
+
+    def gen_cart(self):
+        """Generate Cartesian coordinates from ra, dec, r."""
+        rar, decr = np.radians(self.ra), np.radians(self.dec)
+        self.x = self.r * np.cos(rar) * np.cos(decr)
+        self.y = self.r * np.sin(rar) * np.cos(decr)
+        self.z = self.r * np.sin(decr)
+
+    def assign_jk(self, limits, nra, ndec, verbose=0):
+        """Assign objects to a jackknife region.
+        See https://stackoverflow.com/questions/66799475/how-to-elegantly-find-if-an-angle-is-between-a-range for dealing with RA wrap."""
+        ramin, ramax, decmin, decmax = *limits,
+        if ramax < ramin:
+            ramax += 360
+        rastep, decstep = (ramax-ramin)/nra, (decmax-decmin)/ndec
+        jack = 1  # jack=0 refers to full sample
+        self.njack = nra*ndec
+        self.jack = np.zeros(self.nobj, dtype='int8')
+        if verbose:
+            print('jack   nobj')
+        for idec in range(ndec):
+            declo = decmin + idec*decstep
+            dechi = decmin + (idec+1)*decstep
+            for ira in range(nra):
+                ralo = ramin + ira*rastep
+                rahi = ramin + (ira+1)*rastep
+                sel = (((self.ra - ralo) % 360 <= (rahi - ralo) % 360) *
+                       (declo <= self.dec) * (self.dec < dechi))
+                self.jack[sel] = jack
+                if verbose:
+                    print(jack, len(self.jack[sel]))
+                jack += 1
+
+    def sample(self, jack=0, sub=-1, cart=False):
+        """Return coords, excluding specified jk region if jack > 0,
+        and including only specified subsample if sub > -1.
+        Returns angular coords, unless cart=True."""
+        sel = np.ones(self.nobj, dtype=bool)
+        if jack > 0:
+            sel *= self.jack != jack
+        if sub > -1:
+            sel *= self.sub == sub
+        if cart:
+            return self.x[sel], self.y[sel], self.z[sel]
+        else:
+            return self.ra[sel], self.dec[sel]
+
+    def subset(self, jack=0, sub=-1):
+        """Return catalogue subset, excluding specified jk region if jack > 0,
+        and including only specified subsample if sub > -1."""
+        sel = np.ones(self.nobj, dtype=bool)
+        if jack > 0:
+            sel *= self.jack != jack
+        if sub > -1:
+            sel *= self.sub == sub
+        subcat = Cat(self.ra[sel], self.dec[sel])
+        try:
+            subcat.r = self.r[sel]
+        except AttributeError:
+            pass
+        try:
+            subcat.sub = self.sub[sel]
+        except AttributeError:
+            pass
+        try:
+            subcat.jack = self.jack[sel]
+        except AttributeError:
+            pass
+        return subcat
+
+    def write(self, outfile):
+        """Write catalogue to csv file."""
+        if hasattr(self, 'r'):
+            np.savetxt(outfile, (self.ra, self.dec, self.r))
+        else:
+            np.savetxt(outfile, (self.ra, self.dec))
+
+    def radec_plot(self, plotfile):
+        """Ra, dec plot."""
+        
+class Corr1d(object):
+    """1d clustering estimate."""
+
+    def __init__old(self, ngal=0, nran=0, dd=0, dr=0, rr=0, d1d2=0, d2r1=0,
+                 mlo=0, mhi=0, est='ls'):
+
+        self.mlo = mlo
+        self.mhi = mhi
+        self.ic = 0
+        if ngal > 0:
+            self.ngal = ngal
+            self.nran = nran
+            try:
+                self.lgsep = 0.5*(np.log10(dd['thetamin']) + np.log10(dd['thetamax']))
+                self.sep = 10**self.lgsep
+                self.sep_av = dd['thetaavg']
+            except ValueError:
+                self.sep = 10**(0.5*(np.log10(dd['rmin']) + np.log10(dd['rmax'])))
+                self.sep_av = dd['ravg']
+            self.dd = dd['npairs']
+            self.dr = dr['npairs']
+            self.rr = rr['npairs']
+            if est == 'ls':
+                self.est = np.nan_to_num(Corrfunc.utils.convert_3d_counts_to_cf(
+                    ngal, ngal, nran, nran, dd, dr, dr, rr))
+            if est == 'phx':
+                self.est = nran/ngal * d1d2['npairs']/d2r1['npairs'] - 1
+                    
+    def __init__(self, nd1=0, nd2=0, nr1=0, nr2=0, d1d2=0, d1r2=0, d2r1=0,
+                 r1r2=0, mlo=0, mhi=0, estimator='LS'):
+
+        self.mlo = mlo
+        self.mhi = mhi
+        self.ic = 0
+        if nd1 > 0:
+            self.nd1 = nd1
+            self.nd2 = nd2
+            self.nr1 = nr1
+            self.nr2 = nr2
+            try:
+                self.lgsep = 0.5*(np.log10(d1d2['thetamin']) + np.log10(d1d2['thetamax']))
+                self.sep = 10**self.lgsep
+                self.sep_av = d1d2['thetaavg']
+            except ValueError:
+                self.sep = 10**(0.5*(np.log10(d1d2['rmin']) + np.log10(d1d2['rmax'])))
+                self.sep_av = d1d2['ravg']
+            self.d1d2 = d1d2['npairs']
+            self.d1r2 = d1r2['npairs']
+            self.d2r1 = d2r1['npairs']
+            self.r1r2 = r1r2['npairs']
+            if estimator == 'LS':
+                self.est = np.nan_to_num(Corrfunc.utils.convert_3d_counts_to_cf(
+                    nd1, nd2, nr1, nr2, d1d2, d1r2, d2r1, r1r2, estimator))
+            if estimator == 'phx':
+                self.est = nran/ngal * d1d2['npairs']/d2r1['npairs'] - 1
+                    
+    def average(self, corrs, avgcounts=False):
+        """Average over realisations or subsamples.  Set avgcounts=True
+        to average counts rather than averaging corr fn estimate."""
+
+        nest = len(corrs)
+        self.mlo = corrs[0].mlo
+        self.mhi = corrs[0].mhi
+        self.ngal = np.sum(np.array([corrs[i].ngal for i in range(nest)]))
+        self.nran = np.sum(np.array([corrs[i].nran for i in range(nest)]))
+        self.sep = corrs[0].sep
+        self.sep_av = corrs[0].sep
+        self.d1d2 = np.sum(np.array([corrs[i].d1d2 for i in range(nest)]), axis=0)
+        self.d1r2 = np.sum(np.array([corrs[i].d1r2 for i in range(nest)]), axis=0)
+        self.d2r1 = np.sum(np.array([corrs[i].d2r1 for i in range(nest)]), axis=0)
+        self.r1r2 = np.sum(np.array([corrs[i].r1r2 for i in range(nest)]), axis=0)
+        self.err = np.nan_to_num(np.std(np.array([corrs[i].est for i in range(nest)]), axis=0))
+        if avgcounts:
+            self.est = np.nan_to_num(Corrfunc.utils.convert_3d_counts_to_cf(
+                self.nd1, self.nd2, self.nr1, self.nr2,
+                self.d1d2, self.d1r2, self.d2r1, self.r1r2))
+        else:
+            self.est = np.mean(np.array([corrs[i].est for i in range(nest)]), axis=0)
+
+    def ic_calc_xi(self, fit_range, p0=[5, 1.7], ic_rmax=50, niter=3):
+        """Returns estimated integral constraint for power law xi(r)
+        truncated at ic_rmax."""
+
+        def power_law(r, r0, gamma):
+            """Power law xi(r) = (r0/r)**gamma."""
+            return (r0/r)**gamma
+
+        xi_mod = np.zeros(len(self.sep))
+        pos = (self.sep > 0) * (self.sep < ic_rmax)
+        for i in range(niter):
+            popt, pcov = self.fit_xi(fit_range, p0)
+            xi_mod[pos] = power_law(self.sep[pos], *popt)
+            self.ic = (self.r1r2 * xi_mod).sum() / (self.r1r2).sum()
+
+    def ic_calc(self, fit_range, p0=[0.05, 1.7], ic_rmax=10, niter=3):
+        """Returns estimated integral constraint for power law xi(r)
+        truncated at ic_rmax."""
+
+        def power_law(theta, A, gamma):
+            """Power law w(theta) = A theta**(1-gamma)."""
+            return A * theta**(1-gamma)
+    
+        xi_mod = np.zeros(len(self.sep))
+        pos = (self.sep > 0) * (self.sep < ic_rmax)
+        for i in range(niter):
 #             pdb.set_trace()
             popt = np.zeros(2)
-            pcov = np.inf*np.ones((2, 2))
+            pcov = np.inf*np.((2, 2))
         return popt, pcov
 
     def fit_xi(self, fit_range, p0=[5, 1.7], ax=None, color=None,
