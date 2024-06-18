@@ -325,7 +325,7 @@ def Nz_average(indirs, magbins=np.linspace(16, 22, 7),
     zstep = zbins[1] - zbins[0]
     iest = 0
     for indir in indirs:
-        (zmean, pmz, pmz_err, mlo, mhi) = pickle.load(open('Nz.pkl', 'r'))
+        (zmean, pmz, pmz_err, mlo, mhi) = pickle.load(open(indir+'/Nz.pkl', 'rb'))
         assert nm == len(mlo)
         for im in range(nm):
             iz = 0
