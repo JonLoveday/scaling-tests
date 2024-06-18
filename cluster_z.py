@@ -192,7 +192,7 @@ def pair_counts(spec_gal_file, spec_ran_file, phot_gal_file, phot_ran_file,
                 hdul.append(fits.PrimaryHDU(xi_jack))
                 hdul.flush()
 
-def Nz(fit_range=[0.001, 1], p0=[0.05, 1.7], rmin=0.01, rmax=10):
+def Nz(fit_range=[0.001, 1], p0=[0.05, 1.7], rmin=0.01, rmax=10, ylim=(-0.5, 1)):
     """Cluster redshifts from angular clustering of galaxies in mag bins about
     reference sample in redshift bins."""
 
@@ -312,6 +312,7 @@ def Nz(fit_range=[0.001, 1], p0=[0.05, 1.7], rmin=0.01, rmax=10):
                 transform=ax.transAxes)
     axes[nm//2].set_xlabel(r'Redshift')
     axes[0].set_ylabel(r'$N(z)$')
+    plt.ylim(ylim)
     plt.show()
 
     pickle.dump((zmean, pmz, pmz_err, mlo, mhi), open('Nz.pkl', 'wb'))
