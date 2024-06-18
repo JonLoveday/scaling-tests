@@ -328,13 +328,24 @@ def Nz_average(indirs, magbins=np.linspace(16, 22, 7),
     for indir in indirs:
         (zmean, pmz, pmz_err, mlo, mhi) = pickle.load(open(indir+'/Nz.pkl', 'rb'))
         assert nm == len(mlo)
+        fig, axes = plt.subplots(1, nm, sharex=True, sharey=True)
+        fig.set_size_inches(8, 4)
+        fig.subplots_adjust(hspace=0, wspace=0)
         for im in range(nm):
+            ax = axes[im]
+            ax.errorbar(zmean, pmz[:, im], pmz_err[:, im])
+            ax.text(0.1, 1.05, f"m=[{mlo[im]}, {mhi[im]}]",
+                    transform=ax.transAxes)
             iz = 0
             for z in zmean:
                 oz = int((z - zbins[0])/zstep)
                 Pz[iest, oz, im] = pmz[iz, im]
                 invvar[iest, oz, im] = pmz_err[iz, im]**-2
                 iz += 1
+            axes[nm//2].set_xlabel(r'Redshift')
+            axes[0].set_ylabel(r'$N(z)$')
+            plt.ylim(ylim)
+            plt.show()
         iest += 1
     Pz_mean, invvar_sum = np.ma.average(Pz, axis=0, weights=invvar, returned=True)
      
