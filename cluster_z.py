@@ -314,7 +314,7 @@ def Nz(fit_range=[0.001, 1], p0=[0.05, 1.7], rmin=0.01, rmax=10):
     axes[0].set_ylabel(r'$N(z)$')
     plt.show()
 
-    pickle.dump((zmean, pmz, pmz_err, mlo, mhi), open('Nz.pkl', 'w'))
+    pickle.dump((zmean, pmz, pmz_err, mlo, mhi), open('Nz.pkl', 'wb'))
 
 
 def Nz_average(indirs, magbins=np.linspace(16, 22, 7),
