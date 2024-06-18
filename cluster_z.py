@@ -310,6 +310,7 @@ def Nz(fit_range=[0.001, 1], p0=[0.05, 1.7], rmin=0.01, rmax=10, ylim=(-0.5, 1))
         ax.errorbar(zmean, pmz[:, im], pmz_err[:, im])
         ax.text(0.1, 1.05, f"m=[{mlo[im]}, {mhi[im]}]",
                 transform=ax.transAxes)
+        print(zmean, pmz[:, im], pmz_err[:, im])
     axes[nm//2].set_xlabel(r'Redshift')
     axes[0].set_ylabel(r'$N(z)$')
     plt.ylim(ylim)
