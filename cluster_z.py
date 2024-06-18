@@ -333,6 +333,7 @@ def Nz_average(indirs, magbins=np.linspace(16, 22, 7),
                 oz = int((z - zbins[0])/zstep)
                 Pz[iest, oz, im] = pmz[iz, im]
                 invvar[iest, oz, im] = pmz_err[iz, im]**-2
+                iz += 1
         iest += 1
     Pz_mean, invvar_sum = np.average(Pz, axis=0, weights=invvar, returned=True)
      
