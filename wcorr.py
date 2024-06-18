@@ -277,7 +277,7 @@ class Corr1d(object):
                 sigma=self.err[sel], ftol=ftol, xtol=xtol)
             if ax:
                 ax.plot(self.sep[sel], power_law(self.sep[sel], *popt), color=color)
-        except (RuntimeError, TypeError):
+        except (RuntimeError, TypeError, ValueError):
 #             pdb.set_trace()
             popt = np.zeros(2)
             pcov = np.inf*np.ones((2, 2))
