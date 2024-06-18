@@ -319,7 +319,7 @@ def Nz(fit_range=[0.001, 1], p0=[0.05, 1.7], rmin=0.01, rmax=10, ylim=(-0.5, 1))
 
 
 def Nz_average(indirs, magbins=np.linspace(16, 22, 7),
-               zbins=np.linspace(0.0, 1.1, 45), ylim=(0.5, 1)):
+               zbins=np.linspace(0.0, 1.1, 45), ylim=(-0.5, 1)):
     """Inverse-variance weighted average N(z) from pairs of tracers in indirs."""
     nest, nz, nm = len(indirs), len(zbins) - 1, len(magbins) - 1
     Pz, invvar = np.zeros((nest, nz, nm)), np.zeros((nest, nz, nm))
@@ -342,10 +342,10 @@ def Nz_average(indirs, magbins=np.linspace(16, 22, 7),
                 Pz[iest, oz, im] = pmz[iz, im]
                 invvar[iest, oz, im] = pmz_err[iz, im]**-2
                 iz += 1
-            axes[nm//2].set_xlabel(r'Redshift')
-            axes[0].set_ylabel(r'$N(z)$')
-            plt.ylim(ylim)
-            plt.show()
+        axes[nm//2].set_xlabel(r'Redshift')
+        axes[0].set_ylabel(r'$N(z)$')
+        plt.ylim(ylim)
+        plt.show()
         iest += 1
     Pz_mean, invvar_sum = np.ma.average(Pz, axis=0, weights=invvar, returned=True)
      
