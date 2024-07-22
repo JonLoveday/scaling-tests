@@ -1,4 +1,4 @@
-# Clustering measurements for WAVES target catalogues using treecorr
+# Clustering measurements for WAVES target catalogues
 
 import glob
 import math
@@ -17,12 +17,13 @@ from astropy.table import Table
 from astropy.wcs import WCS
 from astropy.io import fits
 from astropy import units as u
-import treecorr
+import Corrfunc
+# import Corrfunc.mocks
+# from Corrfunc.utils import convert_3d_counts_to_cf
 import pdb
 import pymangle
 
 import calc_kcor
-import limber
 import util
 import wcorr
 
@@ -49,54 +50,17 @@ def make_rect_mask_S():
     wcorr.make_rect_mask(limits=south_limits, rect_mask='mask_S.ply')
 
 
-def plot_pix_mask(mask='WAVES-N_pixelMask.fits'):
+def plot_pix_mask(mask='WAVES-S_pixelMask.fits'):
     """Plot pixel mask."""
 
-    with fits.open(mask) as hdus:
-        hdu = hdus[1]
-        wcs = WCS(hdu.header)
-        data = hdu.data
-    print(data.shape)
-
-    values, counts = np.unique(data, return_counts=True)
-    print(values, counts)
+    hdu = fits.open(mask)[1]
+    wcs = WCS(hdu.header)
 
     plt.subplot(projection=wcs)
-    plt.imshow(data, origin='lower')
+    plt.imshow(hdu.data, origin='lower')
     plt.grid(color='white', ls='solid')
     plt.xlabel('RA')
     plt.ylabel('Dec')
-    plt.show()
-
-
-def plot_cat_mask(mask='WAVES-N_pixelMask.fits',
-                  galcat='WAVES-N_1p2_Z21.2_unmasked_ultralight.parquet',
-                  rancat='randoms_N.fits', mlim=20):
-    """Plot catalogues on top of pixel mask."""
-
-    with fits.open(mask) as hdus:
-        hdu = hdus[1]
-        wcs = WCS(hdu.header)
-        data = hdu.data
-    print(data.shape)
-
-    ax = plt.subplot(projection=wcs)
-    plt.imshow(data, origin='lower', cmap='Greys', vmin=0, vmax=1)
-    plt.grid(color='white', ls='solid')
-    plt.xlabel('RA')
-    plt.ylabel('Dec')
- 
-    t = Table.read(galcat)
-    ra, dec, mag = t['RAmax'], t['Decmax'], t['mag_Zt']
-    sel = mag < mlim
-    print(len(ra[sel]), 'out of', len(ra), 'galaxies')
-    ra, dec = ra[sel], dec[sel]
-    plt.scatter(ra, dec, s=0.1, color='red', transform=ax.get_transform('world'))
- 
-    t = Table.read(rancat)
-    ra, dec = t['RA'], t['DEC']
-    print(len(ra), 'randoms')
-    plt.scatter(ra, dec, s=0.1, color='yellow', transform=ax.get_transform('world'))
     plt.show()
 
 
@@ -149,18 +113,29 @@ def wcounts_class():
                         limits=limits, magbins=magbins)
 
     
-def trim_cat_N():
-    trim_cat(22, north_limits, 'WAVES-N_pixelMask.fits',
-             'WAVES-N_0p2_Z22_withMasking.parquet', 'WAVES_N.fits')
+def wcounts_N():
+    """Angular pair counts in mag bins."""
+    wcounts(infile='WAVES-N_0p2_Z22_GalsAmbig_CompletePhotoZ.fits',
+            mask_file='mask_N.ply', pixel_mask='WAVES-N_pixelMask.fits',
+            out_pref='wmag_N/', limits=north_limits)
 
-def trim_cat_S():
-    trim_cat(22, south_limits, 'WAVES-S_pixelMask.fits',
-             'WAVES-S_0p2_Z22_withMasking.parquet', 'WAVES_S.fits')
+    
+def wcounts_S():
+    """Angular pair counts in mag bins."""
+    wcounts(infile='WAVES-S_small.fits',
+            mask_file='mask_S.ply', pixel_mask='WAVES-S_pixelMask.fits',
+            out_pref='wmag_S/', limits=south_limits)
 
-def trim_cat(mlim, limits, pixel_mask, infile, outfile):
-    """Trim catalogue to limits, mlim, apply mask, and output only galaxy class.
-    Not needed with v1p2."""
+    
+def wcounts(infile, mask_file, pixel_mask, out_pref, limits,
+            nran=100000, nra=10, ndec=1,
+            tmin=0.01, tmax=10, nbins=20,
+            magbins=np.linspace(15, 22, 8)):
+    """Angular pair counts in mag bins."""
 
+    def error_callback(error):
+        print(error, flush=True)
+        
     def mask(ra, dec):
         """Returns mask value for each coordinate or -1 if outside mask."""
         
@@ -168,64 +143,57 @@ def trim_cat(mlim, limits, pixel_mask, infile, outfile):
                           frame='icrs', unit='deg')
         x, y = wcs.world_to_pixel(coords)
         ix, iy = x.astype(int), y.astype(int)
-        inside = (ix >= 0) * (ix < pixmask.shape[1]) * (iy >= 0) * (iy < pixmask.shape[0])
+        inside = (ix >= 0) * (ix < hdu.data.shape[1]) * (iy >= 0) * (iy < hdu.data.shape[0])
         mask = np.zeros(len(ix), dtype=int)
-        mask[inside] = pixmask[iy[inside], ix[inside]]
+        mask[inside] = hdu.data[iy[inside], ix[inside]]
         mask[~inside] = -1
         return mask
+
+    bins = np.logspace(np.log10(tmin), np.log10(tmax), nbins + 1)
+    tcen = 10**(0.5*np.diff(np.log10(bins)) + np.log10(bins[:-1]))
+    ncpu = mp.cpu_count()
+    pool = mp.Pool(ncpu)
+    print('Using', ncpu, 'CPUs')
     
-    with fits.open(pixel_mask) as hdus:
-        hdu = hdus[1]
-        wcs = WCS(hdu.header)
-        pixmask = hdu.data
-    print(pixmask.shape)
-
+    ra_col = 'RAcen'
+    dec_col = 'Deccen'
+    mag_col = 'mag_Zt'
     t = Table.read(infile)
-    ra, dec, mag, sg = t['RAmax'], t['Decmax'], t['mag_Zt'], t['class']
-    print(len(t), 'objects read')
+    ra, dec, mag = t[ra_col], t[dec_col], t[mag_col]
+    print(len(t), 'galaxies read')
 
+    hdu = fits.open(pixel_mask)[1]
+    wcs = WCS(hdu.header)
+    print(hdu.data.shape)
+    
+    # Check for RA wraparound
+    # ra_wrap = 0
+    # if limits[0] > limits[1]:
+    #     ra_wrap = 1
+    #     limits[:2] = wcorr.ra_shift(limits[:2])
+    #     print('RA limits changed to', limits[:2])
+    #     ra = wcorr.ra_shift(ra)
+    
     # See https://stackoverflow.com/questions/66799475/how-to-elegantly-find-if-an-angle-is-between-a-range
-    sel = ((mag < mlim) * (sg == 'galaxy') *
+    sel = ((mag < magbins[-1]) *
            (((ra - limits[0]) % 360 <= (limits[1] - limits[0]) % 360) *
             (limits[2] <= dec) * (dec < limits[3]) * (mask(ra, dec) == 0)))
         
-    print(len(ra[sel]), 'trimmed and masked galaxies')
-    t = Table((ra[sel].astype(np.float64), dec[sel].astype(np.float64), mag[sel]), names=('RA', 'DEC', 'MAG_Z'))
-    t.write(outfile, overwrite=True)
-
-def gen_rand_N():
-    """Randoms for WAVES Wide-N."""
-    gen_rand(limits=north_limits, mask_file='mask_N.ply',
-            pixel_mask='WAVES-N_pixelMask.fits', outfile='randoms_N.fits')
-
+    t = t[sel]
+    print(len(t), 'unmasked galaxies')
     
-def gen_rand_S():
-    """Randoms for WAVES Wide-S."""
-    gen_rand(limits=south_limits, mask_file='mask_S.ply',
-            pixel_mask='WAVES-S_pixelMask.fits', outfile='randoms_S.fits')
-
-    
-def gen_rand(limits, mask_file, pixel_mask, outfile, nran=1000000):
-    """Generate random points within limits and mask."""
-
-    def mask(ra, dec):
-        """Returns mask value for each coordinate or -1 if outside mask."""
-        
-        coords = SkyCoord(ra.astype(np.float64), dec.astype(np.float64),
-                          frame='icrs', unit='deg')
-        x, y = wcs.world_to_pixel(coords)
-        ix, iy = x.astype(int), y.astype(int)
-        inside = (ix >= 0) * (ix < pixmask.shape[1]) * (iy >= 0) * (iy < pixmask.shape[0])
-        mask = np.zeros(len(ix), dtype=int)
-        mask[inside] = pixmask[iy[inside], ix[inside]]
-        mask[~inside] = -1
-        return mask
-    
-    with fits.open(pixel_mask) as hdus:
-        hdu = hdus[1]
-        wcs = WCS(hdu.header)
-        pixmask = hdu.data
-    print(pixmask.shape)
+    ra, dec, mag = t[ra_col], t[dec_col], t[mag_col]
+    # if ra_wrap:
+    #      ra = wcorr.ra_shift(ra)
+       
+    sub = np.zeros(len(ra), dtype='int8')
+    print('imag  ngal')
+    for imag in range(len(magbins) - 1):
+        sel = (magbins[imag] <= mag) * (mag < magbins[imag+1])
+        sub[sel] = imag
+        print(imag, len(t[sel]))
+    galcat = wcorr.Cat(ra, dec, sub=sub)
+    galcat.assign_jk(limits, nra, ndec, verbose=1)
 
     pymask = pymangle.Mangle(mask_file)
     # genrand_range does not work if limits wrap zero
@@ -233,96 +201,35 @@ def gen_rand(limits, mask_file, pixel_mask, outfile, nran=1000000):
     ra, dec = pymask.genrand(nran)
     sel = ((((ra - limits[0]) % 360 <= (limits[1] - limits[0]) % 360) *
             (limits[2] <= dec) * (dec < limits[3]) * (mask(ra, dec) == 0)))
+    rancat = wcorr.Cat(ra[sel].astype('float64'), dec[sel].astype('float64'))
+    rancat.assign_jk(limits, nra, ndec, verbose=1)
+
     print(len(ra[sel]), 'out of', nran, 'unmasked randoms')
 
-    t = Table((ra[sel].astype(np.float64), dec[sel].astype(np.float64)), names=('RA', 'DEC'))
-    t.write(outfile, overwrite=True)
-
-def wcounts_N():
-    """Angular pair counts in mag bins."""
-    wcounts(galfile='WAVES-N_1p2_Z22_unmasked_ToddClass.fits',
-            ranfile='randoms_N.fits', out_dir='wmag_N')
-
-    
-def wcounts_S():
-    """Angular pair counts in mag bins."""
-    wcounts(galfile='WAVES-S_1p2_Z22_unmasked_ToddClass.fits',
-            ranfile='randoms_S.fits', out_dir='wmag_S')
-
-    
-def wcounts(galfile, ranfile, out_dir,
-            npatch=9, tmin=0.01, tmax=10, nbins=20,
-            magbins=[16, 17, 18, 19, 20, 21, 22], plot=0,
-            ra_col='RAmax', dec_col='Decmax', mag_col='mag_Zt'):
-    """Angular pair counts in mag bins."""
-
-    def patch_plot(cat, ax, label, ra_shift=False, nmax=100000):
-        # if nmax < cat.ntot:
-        #     sel = rng.choice(len(cat), size=nmax, replace=False)
-        #     cat = cat[sel]
-        ras = cat.ra
-        if ra_shift:
-            ras = np.array(cat.ra) - math.pi
-            neg = ras < 0
-            ras[neg] += 2*math.pi
-        ax.scatter(ras, cat.dec, c=cat.patch, s=0.1)
-        ax.text(0.05, 0.05, label, transform=ax.transAxes)
-       
-    # Create out_dir if it doesn't already exist
-    Path(out_dir).mkdir(parents=True, exist_ok=True)
-
-    # process the randoms
-    t = Table.read(ranfile)
-    print(len(t), 'randoms read')
-    rcat = treecorr.Catalog(ra=t['RA'], dec=t['DEC'],
-                            ra_units='deg', dec_units='deg',
-                            npatch=npatch)
-    rr = treecorr.NNCorrelation(min_sep=tmin, max_sep=tmax, nbins=nbins,
-                                sep_units='degrees')
-    rr.process(rcat)
-
-    # Now the galaxies
-    t = Table.read(galfile)
-    sel = t['cluster_label'] == 'galaxy'
-    t = t[sel]
-    ra, dec, mag = t[ra_col], t[dec_col], t[mag_col]
-    print(len(t), 'galaxies read')
-    ra_shift = 'S' in out_dir
-
-    print('imag  ngal')
-    for imag in range(len(magbins) - 1):
-        mlo, mhi = magbins[imag], magbins[imag+1]
-        sel = (mlo <= mag) * (mag < mhi)
-        print(imag, len(ra[sel]))
-        gcat = treecorr.Catalog(ra=ra[sel], dec=dec[sel],
-                                ra_units='deg', dec_units='deg',
-                                patch_centers=rcat.patch_centers)
-        if plot:
-            fig, axes = plt.subplots(1, 2, sharex=True, sharey=True, num=1)
-            fig.set_size_inches(8, 4)
-            fig.subplots_adjust(hspace=0, wspace=0)
-            patch_plot(gcat, axes[0], 'gal', ra_shift=ra_shift)
-            patch_plot(rcat, axes[1], 'ran', ra_shift=ra_shift)
-            plt.show()
-
-        dr = treecorr.NNCorrelation(min_sep=tmin, max_sep=tmax, nbins=nbins,
-                                    sep_units='degrees')
-        dr.process(gcat, rcat)
-        dd = treecorr.NNCorrelation(min_sep=tmin, max_sep=tmax, nbins=nbins,
-                                    sep_units='degrees', var_method='jackknife')
-        dd.process(gcat)
-        dd.calculateXi(rr=rr, dr=dr)
-        xi_jack, w = dd.build_cov_design_matrix('jackknife')
-        outfile = f'{out_dir}/w_m{imag}.fits'
-        dd.write(outfile, rr=rr, dr=dr)
-        with fits.open(outfile, mode='update') as hdul:
-            hdr = hdul[1].header
-            hdr['mlo'] = mlo
-            hdr['mhi'] = mhi
-            hdr['Ngal'] = gcat.nobj
-            hdr['Nran'] = rcat.nobj
-            hdul.append(fits.PrimaryHDU(xi_jack))
-            hdul.flush()
+    njack = nra*ndec
+    for ijack in range(njack+1):
+        rcoords = rancat.sample(ijack)
+        info = {'Jack': ijack, 'Nran': len(rcoords[0]), 'bins': bins, 'tcen': tcen}
+        outfile = f'{out_pref}RR_J{ijack}.pkl'
+        pool.apply_async(wcorr.wcounts, args=(*rcoords, bins, info, outfile),
+                         error_callback=error_callback)
+        for imag in range(len(magbins) - 1):
+            mlo, mhi = magbins[imag], magbins[imag+1]
+            gcoords = galcat.sample(ijack, sub=imag)
+            info = {'Jack': ijack, 'mlo': mlo, 'mhi': mhi,
+                    'Ngal': len(gcoords[0]), 'Nran': len(rcoords[0]),
+                                'bins': bins, 'tcen': tcen}
+            outfile = f'{out_pref}GG_J{ijack}_m{imag}.pkl'
+            print(ijack, imag, len(gcoords[0]), len(rcoords[0]), outfile)
+            pool.apply_async(wcorr.wcounts,
+                             args=(*gcoords, bins, info, outfile),
+                             error_callback=error_callback)
+            outfile = f'{out_pref}GR_J{ijack}_m{imag}.pkl'
+            pool.apply_async(wcorr.wcounts,
+                             args=(*gcoords, bins, info,  outfile, *rcoords),
+                             error_callback=error_callback)
+    pool.close()
+    pool.join()
 
 
 def hists(infile='12244.fits', Mr_lims=[-24, -15],
@@ -397,43 +304,84 @@ def w_plot_class(nmag=1, njack=10, fit_range=[0.01, 5], p0=[0.05, 1.7],
     plt.show()
 
 
-def w_plot(nmag=6, fit_range=[0.01, 5], p0=[0.05, 1.7],
-           prefix='wmag_N/',
-           Nz_file='/Users/loveday/Data/Legacy/corr/cmass_ngc_Legacy_9/Nz.pkl',
-           xi_pars='/Users/loveday/Data/flagship/xi_pars.pkl'):
+def w_plot(nmag=7, njack=10, fit_range=[0.01, 5], p0=[0.05, 1.7],
+           prefix='wmag_N/', avgcounts=False, Nz_file='Nz.pkl',
+           gamma1=1.67, gamma2=3.8, r0=6.0, eps=-2.7):
     """w(theta) from angular pair counts in mag bins.
     Use observed N(z) if Nz_file specified, otherwise use LF prediction."""
 
-    if Nz_file:
-        (zmean, pmz, pmz_err, Nz_mlo, Nz_mhi, be_pars) = pickle.load(open(Nz_file, 'rb'))
     plt.clf()
     ax = plt.subplot(111)
     corr_slices = []
     for imag in range(nmag):
-        infile = f'{prefix}w_m{imag}.fits'
-        corr = wcorr.Corr1d(infile)
-        mlo, mhi = corr.meta['MLO'], corr.meta['MHI']
-        m = 0.5*(mlo + mhi)
+        corrs = []
+        for ijack in range(njack+1):
+            infile = f'{prefix}RR_J{ijack}.pkl'
+            (info, RR_counts) = pickle.load(open(infile, 'rb'))
+            infile = f'{prefix}GG_J{ijack}_m{imag}.pkl'
+            (info, DD_counts) = pickle.load(open(infile, 'rb'))
+            infile = f'{prefix}GR_J{ijack}_m{imag}.pkl'
+            (info, DR_counts) = pickle.load(open(infile, 'rb'))
+            corrs.append(
+                wcorr.Corr1d(info['Ngal'], info['Nran'],
+                             DD_counts, DR_counts, RR_counts,
+                             mlo=info['mlo'], mhi=info['mhi']))
+        corr = corrs[0]
+        corr.err = (njack-1)*np.std(np.array([corrs[i].est for i in range(1, njack+1)]), axis=0)
+        corr.ic_calc(fit_range, p0, 5)
+        corr_slices.append(corr)
         color = next(ax._get_lines.prop_cycler)['color']
-        corr.plot(ax, color=color, label=f"m = [{mlo}, {mhi}]")
-        if fit_range:
-            popt, pcov = corr.fit_w(fit_range, p0, ax, color)
-            print(popt, pcov)
-        if Nz_file:
-            if (mlo == Nz_mlo[imag]) and (mhi == Nz_mhi[imag]):
-                wlim = limber.w_lum_Nz_fit(cosmo, corr.sep, m, xi_pars, be_pars[:, imag-1],
-                                       plotint=0, pdf=None, plot_den=0)
-                plt.plot(corr.sep, wlim, '--', color=color)
-            else:
-                print('mismatched magnitude limits', mlo, Nz_mlo[imag], mhi, Nz_mhi[imag])
+        corr.plot(ax, color=color, label=f"m = [{info['mlo']}, {info['mhi']}]")
+        popt, pcov = corr.fit_w(fit_range, p0, ax, color)
+        print(popt, pcov)
     plt.loglog()
     plt.legend()
     plt.xlabel(r'$\theta$ / degrees')
     plt.ylabel(r'$w(\theta)$')
     plt.show()
 
-    # wcorr.wplot_scale(cosmo, corr_slices, gamma1=gamma1, gamma2=gamma2,
-    #                   r0=r0, eps=eps, lf_pars='lf_pars.pkl', Nz_file=Nz_file)
+    wcorr.wplot_scale(cosmo, corr_slices, gamma1=gamma1, gamma2=gamma2,
+                      r0=r0, eps=eps, lf_pars='lf_pars.pkl', Nz_file=Nz_file)
+
+
+def w_plot_pred(nmag=7, njack=10, fit_range=[0.01, 1], p0=[0.05, 1.7],
+                prefix='wmag_N/',
+                avgcounts=False, gamma1=1.67, gamma2=3.8, r0=6.0, eps=-2.7):
+    """Plot observed and predicted w(theta) in mag bins.
+    Use observed N(z) if Nz_file specified, otherwise use LF prediction."""
+
+    plt.clf()
+    ax = plt.subplot(111)
+    corr_slices = []
+    for imag in range(nmag):
+        corrs = []
+        for ijack in range(njack+1):
+            infile = f'{prefix}RR_J{ijack}.pkl'
+            (info, RR_counts) = pickle.load(open(infile, 'rb'))
+            infile = f'{prefix}GG_J{ijack}_m{imag}.pkl'
+            (info, DD_counts) = pickle.load(open(infile, 'rb'))
+            infile = f'{prefix}GR_J{ijack}_m{imag}.pkl'
+            (info, DR_counts) = pickle.load(open(infile, 'rb'))
+            corrs.append(
+                wcorr.Corr1d(info['Ngal'], info['Nran'],
+                             DD_counts, DR_counts, RR_counts,
+                             mlo=info['mlo'], mhi=info['mhi']))
+        corr = corrs[0]
+        corr.err = (njack-1)*np.std(np.array([corrs[i].est for i in range(1, njack+1)]), axis=0)
+        corr.ic_calc(fit_range, p0, 5)
+        corr_slices.append(corr)
+        color = next(ax._get_lines.prop_cycler)['color']
+        corr.plot(ax, color=color, label=f"m = [{info['mlo']}, {info['mhi']}]")
+        popt, pcov = corr.fit_w(fit_range, p0, ax, color)
+        print(popt, pcov)
+    plt.loglog()
+    plt.legend()
+    plt.xlabel(r'$\theta$ / degrees')
+    plt.ylabel(r'$w(\theta)$')
+    plt.show()
+
+    wcorr.wplot_scale(cosmo, corr_slices, gamma1=gamma1, gamma2=gamma2,
+                      r0=r0, eps=eps, lf_pars='lf_pars.pkl')
 
 
 def zfun_lin(z, p):

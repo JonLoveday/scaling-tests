@@ -40,6 +40,30 @@ cosmo = util.CosmoLookup(h, Om0)
 solid_angle = 1
 solid_angle_north = 1
 
+legacy_9_gal = '/pscratch/sd/l/loveday/Legacy/9.0/legacy_ngc.fits'
+legacy_9_ran = '/pscratch/sd/l/loveday/Legacy/9.0/legacy_ngc_ran-0.fits'
+legacy_10_ngc_gal = '/pscratch/sd/l/loveday/Legacy/10.1/legacy_ngc.fits'
+legacy_10_ngc_ran = '/pscratch/sd/l/loveday/Legacy/10.1/legacy_ngc_ran-0.fits'
+legacy_10_sgc_gal = '/pscratch/sd/l/loveday/Legacy/10.1/legacy_sgc.fits'
+legacy_10_sgc_ran = '/pscratch/sd/l/loveday/Legacy/10.1/legacy_sgc_ran-0.fits'
+main_gal = '/pscratch/sd/l/loveday/sdss/post_catalog.dr72full0.fits'
+main_ran = '/pscratch/sd/l/loveday/sdss/random-0.dr72full.fits.gz'
+    
+cmass_ngc_gal = '/global/cfs/cdirs/cosmo/data/sdss/dr12/boss/lss/galaxy_DR12v5_CMASSLOWZTOT_North.fits.gz'
+cmass_ngc_ran = '/global/cfs/cdirs/cosmo/data/sdss/dr12/boss/lss/random0_DR12v5_CMASSLOWZTOT_North.fits.gz'
+cmass_sgc_gal = '/global/cfs/cdirs/cosmo/data/sdss/dr12/boss/lss/galaxy_DR12v5_CMASSLOWZTOT_South.fits.gz'
+cmass_sgc_ran = '/global/cfs/cdirs/cosmo/data/sdss/dr12/boss/lss/random0_DR12v5_CMASSLOWZTOT_South.fits.gz'
+
+lrg_ngc_gal = '/global/cfs/cdirs/cosmo/data/sdss/dr17/eboss/lss/catalogs/DR16/eBOSS_LRGpCMASS_clustering_data-NGC-vDR16.fits'
+lrg_ngc_ran = '/global/cfs/cdirs/cosmo/data/sdss/dr17/eboss/lss/catalogs/DR16/eBOSS_LRGpCMASS_clustering_random-NGC-vDR16.fits'
+lrg_sgc_gal = '/global/cfs/cdirs/cosmo/data/sdss/dr17/eboss/lss/catalogs/DR16/eBOSS_LRGpCMASS_clustering_data-SGC-vDR16.fits'
+lrg_sgc_ran = '/global/cfs/cdirs/cosmo/data/sdss/dr17/eboss/lss/catalogs/DR16/eBOSS_LRGpCMASS_clustering_random-SGC-vDR16.fits'
+    
+elg_ngc_gal = '/global/cfs/cdirs/cosmo/data/sdss/dr17/eboss/lss/catalogs/DR16/eBOSS_ELG_clustering_data-NGC-vDR16.fits'
+elg_ngc_ran = '/global/cfs/cdirs/cosmo/data/sdss/dr17/eboss/lss/catalogs/DR16/eBOSS_ELG_clustering_random-NGC-vDR16.fits'
+elg_sgc_gal = '/global/cfs/cdirs/cosmo/data/sdss/dr17/eboss/lss/catalogs/DR16/eBOSS_ELG_clustering_data-SGC-vDR16.fits'
+elg_sgc_ran = '/global/cfs/cdirs/cosmo/data/sdss/dr17/eboss/lss/catalogs/DR16/eBOSS_ELG_clustering_random-SGC-vDR16.fits'
+
 def select_dr9(maglim=22,
            path='/global/cfs/cdirs/cosmo/data/legacysurvey/dr9/north/sweep/9.0/',
            ranfile='/global/cfs/cdirs/cosmo/data/legacysurvey/dr9/north/randoms/randoms-north-1-{}.fits',
@@ -117,32 +141,26 @@ def select(maglim=22,
         print(iran, nsel, 'out of', ntot, 'randoms selected')
 
 
+def wcounts_mag(magbins=np.linspace(16, 22, 7)):
+    """Legacy auto-pair counts in mag bins using treecorr."""
+
+    out_dir = '/pscratch/sd/l/loveday/Legacy/corr/Legacy_9'
+    wcorr.wcounts_mag(legacy_9_gal, legacy_9_ran,
+                      out_dir, magbins=magbins)
+
+    out_dir = '/pscratch/sd/l/loveday/Legacy/main_ngc_corr/Legacy_10_ngc'
+    cluster_z.pair_counts(
+        legacy_10_ngc_gal, legacy_10_ngc_ran,
+        out_dir, magbins=magbins)
+
+    out_dir = '/pscratch/sd/l/loveday/Legacy/main_sgc_Legacy_10_sgc'
+    cluster_z.pair_counts(
+        legacy_10_sgc_gal, legacy_10_sgc_ran,
+        out_dir, magbins=magbins)
+
 def sdss_Legacy_cz_counts():
     """Cross correlate SDSS samples with Legacy."""
 
-    legacy_9_gal = '/pscratch/sd/l/loveday/Legacy/9.0/legacy_ngc.fits'
-    legacy_9_ran = '/pscratch/sd/l/loveday/Legacy/9.0/legacy_ngc_ran-0.fits'
-    legacy_10_ngc_gal = '/pscratch/sd/l/loveday/Legacy/10.1/legacy_ngc.fits'
-    legacy_10_ngc_ran = '/pscratch/sd/l/loveday/Legacy/10.1/legacy_ngc_ran-0.fits'
-    legacy_10_sgc_gal = '/pscratch/sd/l/loveday/Legacy/10.1/legacy_sgc.fits'
-    legacy_10_sgc_ran = '/pscratch/sd/l/loveday/Legacy/10.1/legacy_sgc_ran-0.fits'
-    main_gal = '/pscratch/sd/l/loveday/sdss/post_catalog.dr72full0.fits'
-    main_ran = '/pscratch/sd/l/loveday/sdss/random-0.dr72full.fits.gz'
-    
-    cmass_ngc_gal = '/global/cfs/cdirs/cosmo/data/sdss/dr12/boss/lss/galaxy_DR12v5_CMASSLOWZTOT_North.fits.gz'
-    cmass_ngc_ran = '/global/cfs/cdirs/cosmo/data/sdss/dr12/boss/lss/random0_DR12v5_CMASSLOWZTOT_North.fits.gz'
-    cmass_sgc_gal = '/global/cfs/cdirs/cosmo/data/sdss/dr12/boss/lss/galaxy_DR12v5_CMASSLOWZTOT_South.fits.gz'
-    cmass_sgc_ran = '/global/cfs/cdirs/cosmo/data/sdss/dr12/boss/lss/random0_DR12v5_CMASSLOWZTOT_South.fits.gz'
-    
-    lrg_ngc_gal = '/global/cfs/cdirs/cosmo/data/sdss/dr17/eboss/lss/catalogs/DR16/eBOSS_LRGpCMASS_clustering_data-NGC-vDR16.fits'
-    lrg_ngc_ran = '/global/cfs/cdirs/cosmo/data/sdss/dr17/eboss/lss/catalogs/DR16/eBOSS_LRGpCMASS_clustering_random-NGC-vDR16.fits'
-    lrg_sgc_gal = '/global/cfs/cdirs/cosmo/data/sdss/dr17/eboss/lss/catalogs/DR16/eBOSS_LRGpCMASS_clustering_data-SGC-vDR16.fits'
-    lrg_sgc_ran = '/global/cfs/cdirs/cosmo/data/sdss/dr17/eboss/lss/catalogs/DR16/eBOSS_LRGpCMASS_clustering_random-SGC-vDR16.fits'
-    
-    elg_ngc_gal = '/global/cfs/cdirs/cosmo/data/sdss/dr17/eboss/lss/catalogs/DR16/eBOSS_ELG_clustering_data-NGC-vDR16.fits'
-    elg_ngc_ran = '/global/cfs/cdirs/cosmo/data/sdss/dr17/eboss/lss/catalogs/DR16/eBOSS_ELG_clustering_random-NGC-vDR16.fits'
-    elg_sgc_gal = '/global/cfs/cdirs/cosmo/data/sdss/dr17/eboss/lss/catalogs/DR16/eBOSS_ELG_clustering_data-SGC-vDR16.fits'
-    elg_sgc_ran = '/global/cfs/cdirs/cosmo/data/sdss/dr17/eboss/lss/catalogs/DR16/eBOSS_ELG_clustering_random-SGC-vDR16.fits'
 
     def mag_fn(t):
         """Legacy magnitudes."""
@@ -307,13 +325,13 @@ def sdss_wcounts(path='/global/cfs/cdirs/cosmo/data/sdss/dr17/eboss/lss/catalogs
             hdul.flush()
 
 
-def wcounts(galfiles=['sweep-000m005-005p000.fits',
+def wcounts_corrfunc(galfiles=['sweep-000m005-005p000.fits',
                       'sweep-000m010-005m005.fits'],
             ranfile='randoms-1-0.fits',
             out_path='/pscratch/sd/l/loveday/Legacy/w_mag',
             tmin=0.01, tmax=10, nbins=20,
             magbins=np.linspace(18, 23, 6)):
-    """Angular pair counts in Z-band magnitude bins."""
+    """Angular pair counts in Z-band magnitude bins using corrfunc."""
 
     path = '/global/cfs/cdirs/cosmo/data/legacysurvey/dr10/south/sweep/10.0/'
     ra, dec, mag, jack = np.zeros(), np.zeros(), np.zeros(), np.zeros()

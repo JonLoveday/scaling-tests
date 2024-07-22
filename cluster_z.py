@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
 import pickle
+import scipy
 import treecorr
 import wcorr
 
@@ -70,6 +71,15 @@ def pair_counts(spec_gal_file, spec_ran_file, phot_gal_file, phot_ran_file,
     Auto-counts for spec sample in redshift bins.
     Cross-corr between spec redshift bins and phot mag bins."""
 
+    def patch_plot(cat, ax, label, ra_shift=False):
+        ras = cat.ra
+        if ra_shift:
+            ras = np.array(ra) - math.pi
+            neg = ras < 0
+            ras[neg] += 2*math.pi
+        ax.scatter(ras, cat.dec, c=cat.patch, s=0.1)
+        ax.text(0.05, 0.05, label, transform=ax.transAxes)
+
     # Create out_dir if it doesn't already exist
     Path(out_dir).mkdir(parents=True, exist_ok=True)
 
@@ -86,20 +96,38 @@ def pair_counts(spec_gal_file, spec_ran_file, phot_gal_file, phot_ran_file,
     phot_gal = phot_gal[hpmask.select(phot_gal, plot=out_dir+'/heal_pgal.png')]
     phot_ran = phot_ran[hpmask.select(phot_ran, plot=out_dir+'/heal_pran.png')]
 
+    # Read catalogues, assign patches, and plot
+    spec_ran_cat = treecorr.Catalog(
+        ra=spec_ran['RA'], dec=spec_ran['DEC'], ra_units='deg', dec_units='deg',
+        npatch=npatch)
+    spec_gal_cat = treecorr.Catalog(
+        ra=spec_gal['RA'], dec=spec_gal['DEC'], ra_units='deg', dec_units='deg',
+        npatch=npatch)
+    phot_ran_cat = treecorr.Catalog(
+        ra=phot_ran['RA'], dec=phot_ran['DEC'], ra_units='deg', dec_units='deg',
+        patch_centers=spec_ran_cat.patch_centers)
+    phot_gal_cat = treecorr.Catalog(
+        ra=phot_gal['RA'], dec=phot_gal['DEC'], ra_units='deg', dec_units='deg',
+        patch_centers=spec_ran_cat.patch_centers)
+    ra_shift = 'sgc' in out_dir
+    fig, axes = plt.subplots(2, 2, sharex=True, sharey=True, num=1)
+    fig.set_size_inches(8, 8)
+    fig.subplots_adjust(hspace=0, wspace=0)
+    patch_plot(spec_gal_cat, axes[0, 0], 'spec_gal', ra_shift=ra_shift)
+    patch_plot(spec_ran_cat, axes[1, 0], 'spec_ran', ra_shift=ra_shift)
+    patch_plot(phot_gal_cat, axes[0, 1], 'phot_gal', ra_shift=ra_shift)
+    patch_plot(phot_ran_cat, axes[1, 1], 'phot_ran', ra_shift=ra_shift)
+    plt.show()
+    plt.savefig(out_dir + '/patch.png')
+
     # spec-spec and spec-phot random-random counts
     bins = np.logspace(np.log10(tmin), np.log10(tmax), nbins + 1)
     tcen = 10**(0.5*np.diff(np.log10(bins)) + np.log10(bins[:-1]))
 
-    spec_ran_cat = treecorr.Catalog(
-        ra=spec_ran['RA'], dec=spec_ran['DEC'], ra_units='deg', dec_units='deg',
-        npatch=npatch)
     spec_rr = treecorr.NNCorrelation(min_sep=tmin, max_sep=tmax, nbins=nbins,
                                      sep_units='degrees')
     spec_rr.process(spec_ran_cat)
 
-    phot_ran_cat = treecorr.Catalog(
-        ra=phot_ran['RA'], dec=phot_ran['DEC'], ra_units='deg', dec_units='deg',
-        patch_centers=spec_ran_cat.patch_centers)
     spec_phot_rr = treecorr.NNCorrelation(min_sep=tmin, max_sep=tmax, nbins=nbins,
                                           sep_units='degrees')
     spec_phot_rr.process(spec_ran_cat, phot_ran_cat)
@@ -108,14 +136,6 @@ def pair_counts(spec_gal_file, spec_ran_file, phot_gal_file, phot_ran_file,
     z = spec_gal[z_col]
     rd_list = []
 
-    patch_plot = out_dir + '/patch.png'
-    fig, axes = plt.subplots(1, 2, sharex=True, sharey=True, num=1)
-    fig.set_size_inches(8, 4)
-    fig.subplots_adjust(hspace=0, wspace=0)
-    axes[0].scatter(spec_ran_cat.ra, spec_ran_cat.dec, c=spec_ran_cat.patch, s=0.1)
-    axes[1].scatter(phot_ran_cat.ra, phot_ran_cat.dec, c=phot_ran_cat.patch, s=0.1)
-    plt.show()
-    plt.savefig(patch_plot)
 
     # spec auto-pair counts in redshift bins
     for iz in range(len(zbins) - 1):
@@ -192,6 +212,10 @@ def pair_counts(spec_gal_file, spec_ran_file, phot_gal_file, phot_ran_file,
                 hdul.append(fits.PrimaryHDU(xi_jack))
                 hdul.flush()
 
+def be_fit(z, zc, alpha, beta, norm):
+    """Generalised Baugh & Efstathiou (1993, eqn 7) model for N(z)."""
+    return norm * z**alpha * np.exp(-(z/zc)**beta)
+
 def Nz(fit_range=[0.001, 1], p0=[0.05, 1.7], rmin=0.01, rmax=10, ylim=(-0.5, 1)):
     """Cluster redshifts from angular clustering of galaxies in mag bins about
     reference sample in redshift bins."""
@@ -210,22 +234,22 @@ def Nz(fit_range=[0.001, 1], p0=[0.05, 1.7], rmin=0.01, rmax=10, ylim=(-0.5, 1))
     fig.subplots_adjust(hspace=0, wspace=0)
     for iz in range(nz):
         infile = f'az{iz}.fits'
-        t = Table.read(infile)
-        with fits.open(infile) as hdul:
-            xi_jack = hdul[2].data
-        corr = wcorr.Corr1d()
-        corr.sep = t['meanr']
-        corr.est = np.vstack((t['xi'], xi_jack))
-        corr.err = t['sigma_xi']
-        corr.r1r2 = t['RR']
+        # t = Table.read(infile)
+        # with fits.open(infile) as hdul:
+        #     xi_jack = hdul[2].data
+        corr = wcorr.Corr1d(infile)
+        # corr.sep = t['meanr']
+        # corr.est = np.vstack((t['xi'], xi_jack))
+        # corr.err = t['sigma_xi']
+        # corr.r1r2 = t['RR']
         ax = axes[iz]
         corr.plot(ax=ax)
         popt, pcov = corr.fit_w(fit_range, p0, ax)
         A = popt[0]
         omg = 1 - popt[1]
-        ax.text(0.0, 1.05, f"z=[{t.meta['ZLO']:3.2f}, {t.meta['ZHI']:3.2f}]",
+        ax.text(0.0, 1.05, f"z=[{corr.meta['ZLO']:3.2f}, {corr.meta['ZHI']:3.2f}]",
                 transform=ax.transAxes)
-        zmean[iz] = t.meta['ZMEAN']
+        zmean[iz] = corr.meta['ZMEAN']
         d[iz] = cosmo.comoving_distance(zmean[iz]).value
         tmin, tmax = 180/math.pi*rmin/d[iz], 180/math.pi*rmax/d[iz]
         w_rr_av[iz] = A/omg*(tmax**omg - tmin**omg)
@@ -256,22 +280,22 @@ def Nz(fit_range=[0.001, 1], p0=[0.05, 1.7], rmin=0.01, rmax=10, ylim=(-0.5, 1))
     for iz in range(nz):
         for im in range(nm):
             infile = f'xz{iz}m{im}.fits'
-            t = Table.read(infile)
-            with fits.open(infile) as hdul:
-                xi_jack = hdul[2].data
-            corr = wcorr.Corr1d()
-            corr.sep = t['meanr']
-            corr.est = np.vstack((t['xi'], xi_jack))
-            corr.err = t['sigma_xi']
-            corr.r1r2 = t['RR']
+            # t = Table.read(infile)
+            # with fits.open(infile) as hdul:
+            #     xi_jack = hdul[2].data
+            corr = wcorr.Corr1d(infile)
+            # corr.sep = t['meanr']
+            # corr.est = np.vstack((t['xi'], xi_jack))
+            # corr.err = t['sigma_xi']
+            # corr.r1r2 = t['RR']
             ax = axes[im, iz]
             corr.plot(ax=ax)
             popt, pcov = corr.fit_w(fit_range, p0, ax)
             A = popt[0]
             omg = 1 - popt[1]
-            mlo[im], mhi[im] = t.meta['MLO'], t.meta['MHI']
+            mlo[im], mhi[im] = corr.meta['MLO'], corr.meta['MHI']
             if im == 0:
-                ax.text(0.1, 1.05, f"z=[{t.meta['ZLO']:3.2f}, {t.meta['ZHI']:3.2f}]",
+                ax.text(0.1, 1.05, f"z=[{corr.meta['ZLO']:3.2f}, {corr.meta['ZHI']:3.2f}]",
                         transform=ax.transAxes)
             if iz == nz-1:
                 ax.text(1.05, 0.5, f"m=[{mlo[im]:3.1f}, {mhi[im]:3.1f}]",
@@ -295,6 +319,7 @@ def Nz(fit_range=[0.001, 1], p0=[0.05, 1.7], rmin=0.01, rmax=10, ylim=(-0.5, 1))
     plt.show()
 
     # N(z) in mag bins
+    be_pars = np.zeros((4, nm))
     pmz = np.zeros((nz, nm))
     pmz_err = np.zeros((nz, nm))
     pmz_jack = np.zeros((njack, nz, nm))
@@ -308,6 +333,13 @@ def Nz(fit_range=[0.001, 1], p0=[0.05, 1.7], rmin=0.01, rmax=10, ylim=(-0.5, 1))
             pmz_jack[ijack, :, im] = w_rt_av_jack[ijack, :, im]/w_rr_av_jack[ijack, :]**0.5
         pmz_err[:, im] = (njack-1)**0.5 * np.std(pmz_jack[:, :, im], axis=0)
         ax.errorbar(zmean, pmz[:, im], pmz_err[:, im])
+        sel = pmz_err[:, im] > 0
+        popt, pcov = scipy.optimize.curve_fit(
+            be_fit, zmean[sel],  pmz[sel, im], sigma=pmz_err[sel, im],
+            p0=(0.5, 2.0, 1.5, 1), ftol=1e-3, xtol=1e-3)
+        ax.plot(zmean, be_fit(zmean, *popt), ls='-')
+        be_pars[:, im] = popt
+        print(popt)
         ax.text(0.1, 1.05, f"m=[{mlo[im]}, {mhi[im]}]",
                 transform=ax.transAxes)
         print(zmean, pmz[:, im], pmz_err[:, im])
@@ -316,7 +348,7 @@ def Nz(fit_range=[0.001, 1], p0=[0.05, 1.7], rmin=0.01, rmax=10, ylim=(-0.5, 1))
     plt.ylim(ylim)
     plt.show()
 
-    pickle.dump((zmean, pmz, pmz_err, mlo, mhi), open('Nz.pkl', 'wb'))
+    pickle.dump((zmean, pmz, pmz_err, mlo, mhi, be_pars), open('Nz.pkl', 'wb'))
 
 
 def Nz_average(indirs, magbins=np.linspace(16, 22, 7),
@@ -327,7 +359,7 @@ def Nz_average(indirs, magbins=np.linspace(16, 22, 7),
     zstep = zbins[1] - zbins[0]
     iest = 0
     for indir in indirs:
-        (zmean, pmz, pmz_err, mlo, mhi) = pickle.load(open(indir+'/Nz.pkl', 'rb'))
+        (zmean, pmz, pmz_err, mlo, mhi, be_pars) = pickle.load(open(indir+'/Nz.pkl', 'rb'))
         assert nm == len(mlo)
         fig, axes = plt.subplots(1, nm, sharex=True, sharey=True)
         fig.set_size_inches(8, 4)
@@ -360,4 +392,23 @@ def Nz_average(indirs, magbins=np.linspace(16, 22, 7),
                 transform=ax.transAxes)
     axes[nm//2].set_xlabel(r'Redshift')
     axes[0].set_ylabel(r'$N(z)$')
+    plt.show()
+
+
+def Nz_plot(ylim=(-0.5, 1)):
+    """Plot N(z)."""
+    (zmean, pmz, pmz_err, mlo, mhi, be_pars) = pickle.load(open('Nz.pkl', 'rb'))
+    nm = len(mlo)
+    fig, axes = plt.subplots(1, nm, sharex=True, sharey=True)
+    fig.set_size_inches(8, 4)
+    fig.subplots_adjust(hspace=0, wspace=0)
+    for im in range(nm):
+        ax = axes[im]
+        ax.errorbar(zmean, pmz[:, im], pmz_err[:, im])
+        ax.plot(zmean, be_fit(zmean, *be_pars[:, im]), ls='-')
+        ax.text(0.1, 1.05, f"m=[{mlo[im]}, {mhi[im]}]",
+                transform=ax.transAxes)
+    axes[nm//2].set_xlabel(r'Redshift')
+    axes[0].set_ylabel(r'$N(z)$')
+    plt.ylim(ylim)
     plt.show()

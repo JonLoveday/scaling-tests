@@ -295,3 +295,91 @@ def w_lum_Nz(cosmo, selfn, theta, m, xi_pars, kpoly, plotint=0, pdf=None, plot_d
     print('num', m, theta, quad)
 
     return num/denom
+
+
+def be_fit(z, zc, alpha, beta, norm):
+    """Generalised Baugh & Efstathiou (1993, eqn 7) model for N(z)."""
+    return norm * z**alpha * np.exp(-(z/zc)**beta)
+
+def kcorr(z):
+    """Approximate z-band K-correction."""
+    return 0.5*z
+
+def w_lum_Nz_fit(cosmo, thetabins, m, xi_pars, be_pars,
+                 plotint=0, pdf=None, plot_den=0):
+    """Returns w(theta) for lum-dependent xi(r) correlation length and index
+    by evaluating Maddox+1996 eqn 31 using BE fit to number counts N(z)."""
+    
+    def denfun(z):
+        """Denominator of Maddox+ eqn 31."""
+        return be_fit(z, *be_pars)
+
+    def ximod(r, z, M):
+        """Luminosity-dependent evolving xi(r) model."""
+        # Mz = np.ma.vstack((M.flatten(), z.flatten()))
+        r0 = np.clip(xi_dict['r0_fun'](xi_dict['r0_pars'], M, z), 1, 10)
+        gamma = np.clip(xi_dict['gam_fun'](xi_dict['gam_pars'], M, z), 1, 3)
+        xi = (r0/r)**gamma
+        return xi
+
+    def ximod_2d(r, z, M):
+        """2d interpolation of r0(M, z) and gamma(M, z)."""
+        r0 = xi_dict['r0_lin_interp'](M, z)
+        bad =  np.isnan(r0)
+        r0[bad] = xi_dict['r0_nn_interp'](M, z)[bad]
+        gamma = xi_dict['gamma_lin_interp'](M, z)
+        bad = np.isnan(gamma)
+        gamma[bad] = xi_dict['gamma_nn_interp'](M, z)[bad]
+        return (r0/r)**gamma
+
+    def xifun(z1, z2):
+        """Numerator of Maddox+ eqn 31."""
+        z = 0.5*(z1+z2)
+        x1 = cosmo.dc(z1)
+        x2 = cosmo.dc(z2)
+        x12 = (x1**2 + x2**2 - 2*x1*x2*np.cos(np.deg2rad(theta)))**0.5
+        M = m - cosmo.distmod(z) - kcorr(z)
+        return denfun(z1) * denfun(z2) * ximod(x12, z, M)
+
+    zmin, zmax = cosmo._z[0], cosmo._z[-1]
+    z = np.linspace(zmin, zmax, 100)
+    xi_dict = pickle.load(open(xi_pars, 'rb'))
+
+    if pdf:
+        if plot_den:
+            fig = plt.figure()
+            plt.plot(z, denfun(z))
+            plt.xlabel('Redshift')
+            plt.ylabel('denfun')
+            plt.title(f'mag = {m:4.2f}')
+            pdf.savefig(plt.gcf().number)
+            plt.close(fig)
+        
+        fig = plt.figure()
+        z1, z2 = np.meshgrid(z, z)
+        plt.imshow(xifun(z1, z2), extent=(zmin, zmax, zmax, zmin), norm='log')
+        plt.xlabel('z2')
+        plt.ylabel('z1')
+        plt.title(f'mag = {m:4.2f}, theta = {theta:4.3f}')
+        plt.colorbar()
+        pdf.savefig(plt.gcf().number)
+        plt.close(fig)
+
+
+    quad = scipy.integrate.quad(denfun, zmin, zmax, epsrel=0.01)
+    denom = quad[0]**2
+    print('denom', m, quad)
+
+    # num = scipy.integrate.dblquad(xifun, rmin, rmax, lambda x: max(rmin, x-100),
+    #                               lambda x: min(rmax, x+100), epsabs=1e5, epsrel=0.01)[0]
+    wbins = []
+    for theta in thetabins:
+        quad = scipy.integrate.dblquad(xifun, zmin, zmax, zmin, zmax,
+                                       epsrel=0.01)
+        num = quad[0]
+        if np.isnan(num):
+            pdb.set_trace()
+        print('num', m, theta, quad)
+
+        wbins.append(num/denom)
+    return wbins

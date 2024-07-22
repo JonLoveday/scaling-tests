@@ -11,6 +11,7 @@ from numpy.random import default_rng
 # import os
 # os.environ["OMP_NUM_THREADS"] = "1"  # avoid clash with multiprocessing
 import pandas as pd
+from pathlib import Path
 import pdb
 import pickle
 import pylab as plt
@@ -27,6 +28,7 @@ import Corrfunc
 # from Corrfunc.utils import convert_3d_counts_to_cf
 import multiprocessing as mp
 import pymangle
+import treecorr
 
 import calc_kcor
 import limber
@@ -136,7 +138,7 @@ class Corr1d(object):
     """1d clustering estimate."""
 
     def __init__old(self, ngal=0, nran=0, dd=0, dr=0, rr=0, d1d2=0, d2r1=0,
-                 mlo=0, mhi=0, est='ls'):
+                    mlo=0, mhi=0, est='ls'):
 
         self.mlo = mlo
         self.mhi = mhi
@@ -160,33 +162,62 @@ class Corr1d(object):
             if est == 'phx':
                 self.est = nran/ngal * d1d2['npairs']/d2r1['npairs'] - 1
                     
-    def __init__(self, nd1=0, nd2=0, nr1=0, nr2=0, d1d2=0, d1r2=0, d2r1=0,
-                 r1r2=0, mlo=0, mhi=0, estimator='LS'):
+    # def __init__(self, nd1=0, nd2=0, nr1=0, nr2=0, d1d2=0, d1r2=0, d2r1=0,
+    #              r1r2=0, mlo=0, mhi=0, estimator='LS', infile=None):
 
-        self.mlo = mlo
-        self.mhi = mhi
+        # self.mlo = mlo
+        # self.mhi = mhi
+        # self.ic = 0
+
+        # if '.fits' in infile:
+        #     # Read treecorr output file
+        #     t = Table.read(infile)
+        #     with fits.open(infile) as hdul:
+        #         xi_jack = hdul[2].data
+        #         self.njack = hdul[2].shape[0]
+        #     self.sep = t['meanr']
+        #     self.est = np.vstack((t['xi'], xi_jack))
+        #     self.err = t['sigma_xi']
+        #     self.r1r2 = t['RR']
+
+        # if nd1 > 0:
+        #     self.nd1 = nd1
+        #     self.nd2 = nd2
+        #     self.nr1 = nr1
+        #     self.nr2 = nr2
+        #     try:
+        #         self.lgsep = 0.5*(np.log10(d1d2['thetamin']) + np.log10(d1d2['thetamax']))
+        #         self.sep = 10**self.lgsep
+        #         self.sep_av = d1d2['thetaavg']
+        #     except ValueError:
+        #         self.sep = 10**(0.5*(np.log10(d1d2['rmin']) + np.log10(d1d2['rmax'])))
+        #         self.sep_av = d1d2['ravg']
+        #     self.d1d2 = d1d2['npairs']
+        #     self.d1r2 = d1r2['npairs']
+        #     self.d2r1 = d2r1['npairs']
+        #     self.r1r2 = r1r2['npairs']
+        #     if estimator == 'LS':
+        #         self.est = np.nan_to_num(Corrfunc.utils.convert_3d_counts_to_cf(
+        #             nd1, nd2, nr1, nr2, d1d2, d1r2, d2r1, r1r2, estimator))
+        #     if estimator == 'phx':
+        #         self.est = nran/ngal * d1d2['npairs']/d2r1['npairs'] - 1
+                    
+    def __init__(self, infile):
+
         self.ic = 0
-        if nd1 > 0:
-            self.nd1 = nd1
-            self.nd2 = nd2
-            self.nr1 = nr1
-            self.nr2 = nr2
-            try:
-                self.lgsep = 0.5*(np.log10(d1d2['thetamin']) + np.log10(d1d2['thetamax']))
-                self.sep = 10**self.lgsep
-                self.sep_av = d1d2['thetaavg']
-            except ValueError:
-                self.sep = 10**(0.5*(np.log10(d1d2['rmin']) + np.log10(d1d2['rmax'])))
-                self.sep_av = d1d2['ravg']
-            self.d1d2 = d1d2['npairs']
-            self.d1r2 = d1r2['npairs']
-            self.d2r1 = d2r1['npairs']
-            self.r1r2 = r1r2['npairs']
-            if estimator == 'LS':
-                self.est = np.nan_to_num(Corrfunc.utils.convert_3d_counts_to_cf(
-                    nd1, nd2, nr1, nr2, d1d2, d1r2, d2r1, r1r2, estimator))
-            if estimator == 'phx':
-                self.est = nran/ngal * d1d2['npairs']/d2r1['npairs'] - 1
+
+        if '.fits' in infile:
+            # Read treecorr output file
+            t = Table.read(infile)
+            with fits.open(infile) as hdul:
+                xi_jack = hdul[2].data
+                self.njack = hdul[2].shape[0]
+            self.sep = t['meanr']
+            self.est = np.vstack((t['xi'], xi_jack))
+            self.err = t['sigma_xi']
+            self.r1r2 = t['RR']
+            self.meta = t.meta
+
                     
     def average(self, corrs, avgcounts=False):
         """Average over realisations or subsamples.  Set avgcounts=True
@@ -261,7 +292,13 @@ class Corr1d(object):
                 print(self.sep[i], self.est_corr()[i],
                       self.cov.sig[i], file=fout)
 
-    def fit_w(self, fit_range, p0=[0.05, 1.7], ax=None, color=None,
+    def plot_jack(self, ax, color=None, label=None):
+        ax.errorbar(self.sep, self.est_corr(), self.err,
+                    fmt='o', color=color, label=label, capthick=1)
+        for ijack in range(self.njack):
+            ax.scatter(self.sep, self.est_corr(ijack=ijack+1), s=1)
+
+    def fit_w(self, fit_range, p0=[1, 1.7], ax=None, color=None,
               ftol=1e-3, xtol=1e-3, ijack=0):
         """Fit a power law to w(theta)."""
 
@@ -270,7 +307,8 @@ class Corr1d(object):
             return A * theta**(1-gamma)
 
         sel = ((self.sep >= fit_range[0]) * (self.sep < fit_range[1]) *
-               np.isfinite(self.est_corr(ijack)) * (self.err > 0) * (self.r1r2 > 10))
+               np.isfinite(self.est_corr(ijack)) * (self.err > 0) *
+               (self.est_corr(ijack) > 0)) # (self.r1r2 > 10)
         try:
             popt, pcov = scipy.optimize.curve_fit(
                 power_law, self.sep[sel], self.est_corr(ijack)[sel], p0=p0,
@@ -278,9 +316,11 @@ class Corr1d(object):
             if ax:
                 ax.plot(self.sep[sel], power_law(self.sep[sel], *popt), color=color)
         except (RuntimeError, TypeError, ValueError):
-#             pdb.set_trace()
             popt = np.zeros(2)
             pcov = np.inf*np.ones((2, 2))
+        # if popt[0] < 0:
+        #     pdb.set_trace()
+            
         return popt, pcov
 
     def fit_xi(self, fit_range, p0=[5, 1.7], ax=None, color=None,
@@ -454,6 +494,81 @@ def make_rect_mask(limits=[180, 200, 0, 20], rect_mask='mask.ply'):
     # Snap to polygon format (default weight=1)
     cmd = f'$MANGLE_DIR/bin/snap -ir1 {rect_mask} {rect_mask}'
     subprocess.call(cmd, shell=True)
+
+def patch_plot(cat, ax, label, ra_shift=False):
+    ras = cat.ra
+    if ra_shift:
+        ras = np.array(ras) - math.pi
+        neg = ras < 0
+        ras[neg] += 2*math.pi
+    ax.scatter(ras, cat.dec, c=cat.patch, s=0.1)
+    ax.text(0.05, 0.05, label, transform=ax.transAxes)
+
+
+def wcounts_mag(galfile, ranfile, out_dir,
+                tmin=0.01, tmax=10, nbins=20,
+                magbins=np.linspace(18, 23, 6), mag_col='Z_MAG', npatch=9):
+    """Angular pair counts in Z-band magnitude bins using treecorr."""
+
+    # Create out_dir if it doesn't already exist
+    Path(out_dir).mkdir(parents=True, exist_ok=True)
+
+    # Read in galaxy and random catalogues, assign patches, and plot
+    gal = Table.read(galfile)
+    ran = Table.read(ranfile)
+    rancat = treecorr.Catalog(
+        ra=ran['RA'], dec=ran['DEC'], ra_units='deg', dec_units='deg',
+        npatch=npatch)
+    galcat = treecorr.Catalog(
+        ra=gal['RA'], dec=gal['DEC'], ra_units='deg', dec_units='deg',
+        patch_centers=rancat.patch_centers)
+    ra_shift = 'sgc' in out_dir
+    fig, axes = plt.subplots(1, 2, sharex=True, sharey=True, num=1)
+    fig.set_size_inches(8, 4)
+    fig.subplots_adjust(hspace=0, wspace=0)
+    patch_plot(galcat, axes[0, 0], 'gal', ra_shift=ra_shift)
+    patch_plot(rancat, axes[0, 1], 'ran', ra_shift=ra_shift)
+    plt.show()
+    plt.savefig(out_dir + '/patch.png')
+
+    # random-random counts
+    bins = np.logspace(np.log10(tmin), np.log10(tmax), nbins + 1)
+    tcen = 10**(0.5*np.diff(np.log10(bins)) + np.log10(bins[:-1]))
+
+    rr = treecorr.NNCorrelation(min_sep=tmin, max_sep=tmax, nbins=nbins,
+                                sep_units='degrees')
+    rr.process(rancat)
+
+ 
+    # mag bins
+    mag = gal['Z_MAG']
+    for im in range(len(magbins) - 1):
+        mlo, mhi = magbins[im], magbins[im+1]
+        sel = (mlo <= mag) * (mag < mhi)
+        galcat = treecorr.Catalog(
+            ra=gal['RA'][sel], dec=gal['DEC'][sel],
+            ra_units='deg', dec_units='deg',
+            patch_centers=rancat.patch_centers)
+        dd = treecorr.NNCorrelation(
+            min_sep=tmin, max_sep=tmax, nbins=nbins,
+            sep_units='degrees', var_method='jackknife')
+        dd.process(galcat)
+        dr = treecorr.NNCorrelation(
+            min_sep=tmin, max_sep=tmax, nbins=nbins,
+            sep_units='degrees', var_method='jackknife')
+        dr.process(galcat, rancat)
+        dd.calculateXi(rr=rr, dr=dr)
+        xi_jack, w = dd.build_cov_design_matrix('jackknife')
+        outfile = f'{out_dir}/am{im}.fits'
+        dd.write(outfile, rr=rr, dr=dr)
+        with fits.open(outfile, mode='update') as hdul:
+            hdr = hdul[1].header
+            hdr['mlo'] = mlo
+            hdr['mhi'] = mhi
+            hdr['Ngal'] = galcat.nobj
+            hdr['Nran'] = rancat.nobj
+            hdul.append(fits.PrimaryHDU(xi_jack))
+            hdul.flush()
 
 
 def wcalc(galcat, rancat, bins, jack=-1):
@@ -797,6 +912,25 @@ def wplot(infiles):
         plt.errorbar(tcen, w, w_err, label=infile)
     plt.loglog()
     plt.legend()
+    plt.xlabel(r'$\theta$ [degrees]')
+    plt.ylabel(r'w($\theta$)')
+    plt.show()
+
+
+def tcplot(infile, fit_range=(0.0001, 1)):
+    """Plot w(theta) results from treecorr."""
+
+    corr = Corr1d(infile=infile)
+    fig, ax = plt.subplots()
+    corr.plot_jack(ax=ax)
+    popt, pcov = corr.fit_w(fit_range, ax=ax)
+    print(popt, pcov)
+    # Fits to jackknife
+    for ijack in range(corr.njack):
+        popt, pcov = corr.fit_w(fit_range, ax=ax, ijack=ijack+1)
+        print(popt, pcov)
+    plt.loglog()
+    # plt.legend()
     plt.xlabel(r'$\theta$ [degrees]')
     plt.ylabel(r'w($\theta$)')
     plt.show()
