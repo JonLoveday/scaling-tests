@@ -144,17 +144,17 @@ def select(maglim=22,
 def wcounts_mag(magbins=np.linspace(16, 22, 7)):
     """Legacy auto-pair counts in mag bins using treecorr."""
 
-    out_dir = '/pscratch/sd/l/loveday/Legacy/corr/Legacy_9'
-    wcorr.wcounts_mag(legacy_9_gal, legacy_9_ran,
-                      out_dir, magbins=magbins)
+    # out_dir = '/pscratch/sd/l/loveday/Legacy/corr/Legacy_9'
+    # wcorr.wcounts_mag(legacy_9_gal, legacy_9_ran,
+    #                   out_dir, magbins=magbins)
 
-    out_dir = '/pscratch/sd/l/loveday/Legacy/main_ngc_corr/Legacy_10_ngc'
-    cluster_z.pair_counts(
+    out_dir = '/pscratch/sd/l/loveday/Legacy/corr/Legacy_10_ngc'
+    wcorr.wcounts_mag(
         legacy_10_ngc_gal, legacy_10_ngc_ran,
         out_dir, magbins=magbins)
 
-    out_dir = '/pscratch/sd/l/loveday/Legacy/main_sgc_Legacy_10_sgc'
-    cluster_z.pair_counts(
+    out_dir = '/pscratch/sd/l/loveday/Legacy/corr/Legacy_10_sgc'
+    wcorr.wcounts_mag(
         legacy_10_sgc_gal, legacy_10_sgc_ran,
         out_dir, magbins=magbins)
 
@@ -366,7 +366,7 @@ def wcounts_corrfunc(galfiles=['sweep-000m005-005p000.fits',
     
     path = '/global/cfs/cdirs/cosmo/data/legacysurvey/dr10/south/randoms/'
     t = Table.read(path + ranfile)
-    jack = np.zeros(len[t], dtype=int32)
+    jack = np.zeros(len[t], dtype=np.int32)
     ijack = 0
     for brick in bricks:
         ijack += 1
@@ -384,7 +384,7 @@ def wcounts_corrfunc(galfiles=['sweep-000m005-005p000.fits',
     pool = mp.Pool(ncpu)
     print('Using', ncpu, 'CPUs')
     
-    for ijack in range(njack+1):
+    for ijack in range(njack_gal+1):
         rcoords = rancat.sample(ijack)
         info = {'Jack': ijack, 'Nran': len(rcoords[0]), 'bins': bins, 'tcen': tcen}
         outfile = f'{out_path}RR_J{ijack}.pkl'
