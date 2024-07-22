@@ -449,9 +449,9 @@ class Cov(object):
             ax.set_xlabel(xlabel)
             if label:
                 ax.set_title(label)
-            divider = make_axes_locatable(ax)
-            cax = divider.append_axes("right", size="5%", pad=0.05)
-            cb = plt.colorbar(im, cax=cax)
+            # divider = make_axes_locatable(ax)
+            # cax = divider.append_axes("right", size="5%", pad=0.05)
+            cb = plt.colorbar(im, ax=ax)
         except:
             print('Error plottong covariance matrix')
 
@@ -526,8 +526,8 @@ def wcounts_mag(galfile, ranfile, out_dir,
     fig, axes = plt.subplots(1, 2, sharex=True, sharey=True, num=1)
     fig.set_size_inches(8, 4)
     fig.subplots_adjust(hspace=0, wspace=0)
-    patch_plot(galcat, axes[0, 0], 'gal', ra_shift=ra_shift)
-    patch_plot(rancat, axes[0, 1], 'ran', ra_shift=ra_shift)
+    patch_plot(galcat, axes[0], 'gal', ra_shift=ra_shift)
+    patch_plot(rancat, axes[1], 'ran', ra_shift=ra_shift)
     plt.show()
     plt.savefig(out_dir + '/patch.png')
 
