@@ -161,7 +161,6 @@ def wcounts_mag(magbins=np.linspace(16, 22, 7)):
 def sdss_Legacy_cz_counts():
     """Cross correlate SDSS samples with Legacy."""
 
-
     def mag_fn(t):
         """Legacy magnitudes."""
         return t['Z_MAG']
@@ -170,71 +169,71 @@ def sdss_Legacy_cz_counts():
     # Main sample
     zbins = np.linspace(0.0, 0.3, 13)
 
-    out_dir = '/pscratch/sd/l/loveday/Legacy/main_ngc_Legacy_9'
+    out_dir = '/pscratch/sd/l/loveday/Legacy/corr/main_ngc_Legacy_9'
     cluster_z.pair_counts(
         main_gal, main_ran, legacy_9_gal, legacy_9_ran,
         out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10)
 
-    out_dir = '/pscratch/sd/l/loveday/Legacy/main_ngc_Legacy_10'
+    out_dir = '/pscratch/sd/l/loveday/Legacy/corr/main_ngc_Legacy_10'
     cluster_z.pair_counts(
         main_gal, main_ran, legacy_10_ngc_gal, legacy_10_ngc_ran,
         out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10)
 
-    out_dir = '/pscratch/sd/l/loveday/Legacy/main_sgc_Legacy_10'
+    out_dir = '/pscratch/sd/l/loveday/Legacy/corr/main_sgc_Legacy_10'
     cluster_z.pair_counts(
         main_gal, main_ran, legacy_10_sgc_gal, legacy_10_sgc_ran,
         out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10)
 
-    # # CMASS low-z
-    # zbins = np.linspace(0.0, 0.8, 17)
+    # CMASS low-z
+    zbins = np.linspace(0.0, 0.8, 17)
 
-    # out_dir = '/pscratch/sd/l/loveday/Legacy/cmass_ngc_Legacy_9'
-    # cluster_z.pair_counts(
-    #     cmass_ngc_gal, cmass_ngc_ran, legacy_9_gal, legacy_9_ran,
-    #     out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10)
+    out_dir = '/pscratch/sd/l/loveday/Legacy/corr/cmass_ngc_Legacy_9'
+    cluster_z.pair_counts(
+        cmass_ngc_gal, cmass_ngc_ran, legacy_9_gal, legacy_9_ran,
+        out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10)
 
-    # out_dir = '/pscratch/sd/l/loveday/Legacy/cmass_ngc_Legacy_10'
-    # cluster_z.pair_counts(
-    #     cmass_ngc_gal, cmass_ngc_ran, legacy_10_ngc_gal, legacy_10_ngc_ran,
-    #     out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10)
+    out_dir = '/pscratch/sd/l/loveday/Legacy/corr/cmass_ngc_Legacy_10'
+    cluster_z.pair_counts(
+        cmass_ngc_gal, cmass_ngc_ran, legacy_10_ngc_gal, legacy_10_ngc_ran,
+        out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10)
 
-    # out_dir = '/pscratch/sd/l/loveday/Legacy/cmass_sgc_Legacy_10'
-    # cluster_z.pair_counts(
-    #     cmass_sgc_gal, cmass_sgc_ran,legacy_10_sgc_gal, legacy_10_sgc_ran,
-    #     out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10)
+    out_dir = '/pscratch/sd/l/loveday/Legacy/corr/cmass_sgc_Legacy_10'
+    cluster_z.pair_counts(
+        cmass_sgc_gal, cmass_sgc_ran,legacy_10_sgc_gal, legacy_10_sgc_ran,
+        out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10)
 
-    # # LRGpCMASS 
-    # zbins = np.linspace(0.6, 1.0, 17)
+    # LRGpCMASS 
+    zbins = np.linspace(0.6, 1.0, 17)
 
-    # out_dir = '/pscratch/sd/l/loveday/Legacy/lrg_ngc_Legacy_9'
-    # cluster_z.pair_counts(
-    #     lrg_ngc_gal, lrg_ngc_ran,legacy_9_gal, legacy_9_ran,
-    #     out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10)
+    out_dir = '/pscratch/sd/l/loveday/Legacy/corr/lrg_ngc_Legacy_9'
+    cluster_z.pair_counts(
+        lrg_ngc_gal, lrg_ngc_ran,legacy_9_gal, legacy_9_ran,
+        out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10)
 
-    # out_dir = '/pscratch/sd/l/loveday/Legacy/lrg_ngc_Legacy_10'
-    # cluster_z.pair_counts(
-    #     lrg_ngc_gal, lrg_ngc_ran, legacy_10_ngc_gal, legacy_10_ngc_ran,
-    #     out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10)
+    out_dir = '/pscratch/sd/l/loveday/Legacy/corr/lrg_ngc_Legacy_10'
+    cluster_z.pair_counts(
+        lrg_ngc_gal, lrg_ngc_ran, legacy_10_ngc_gal, legacy_10_ngc_ran,
+        out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10)
 
-    # out_dir = '/pscratch/sd/l/loveday/Legacy/lrg_sgc_Legacy_10'
-    # cluster_z.pair_counts(
-    #     lrg_sgc_gal, lrg_sgc_ran, legacy_10_sgc_gal, legacy_10_sgc_ran,
-    #     out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10)
+    out_dir = '/pscratch/sd/l/loveday/Legacy/corr/lrg_sgc_Legacy_10'
+    cluster_z.pair_counts(
+        lrg_sgc_gal, lrg_sgc_ran, legacy_10_sgc_gal, legacy_10_sgc_ran,
+        out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10)
 
     # ELG 
     zbins = np.linspace(0.6, 1.1, 21)
 
-    out_dir = '/pscratch/sd/l/loveday/Legacy/elg_ngc_Legacy_9'
+    out_dir = '/pscratch/sd/l/loveday/Legacy/corr/elg_ngc_Legacy_9'
     cluster_z.pair_counts(
         elg_ngc_gal, elg_ngc_ran, legacy_9_gal, legacy_9_ran,
         out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10)
 
-    out_dir = '/pscratch/sd/l/loveday/Legacy/elg_ngc_Legacy_10'
+    out_dir = '/pscratch/sd/l/loveday/Legacy/corr/elg_ngc_Legacy_10'
     cluster_z.pair_counts(
         elg_ngc_gal, elg_ngc_ran, legacy_10_ngc_gal, legacy_10_ngc_ran,
         out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10)
 
-    out_dir = '/pscratch/sd/l/loveday/Legacy/elg_sgc_Legacy_10'
+    out_dir = '/pscratch/sd/l/loveday/Legacy/corr/elg_sgc_Legacy_10'
     cluster_z.pair_counts(
         elg_sgc_gal, elg_sgc_ran, legacy_10_sgc_gal, legacy_10_sgc_ran,
         out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10)

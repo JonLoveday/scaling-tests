@@ -66,7 +66,7 @@ def pair_counts(spec_gal_file, spec_ran_file, phot_gal_file, phot_ran_file,
                 out_dir, mag_fn, z_col='Z', 
                 magbins=np.linspace(18, 23, 6), zbins=np.linspace(0.0, 1.0, 11),
                 tmin=0.001, tmax=10, nbins=20, nran=1, npatch=9,
-                nside=64, f_occ=0.5):
+                nside=64, f_occ=0.5, exclude_psf=True):
     """Perform paircounts using treecorr.
     Auto-counts for spec sample in redshift bins.
     Cross-corr between spec redshift bins and phot mag bins."""
@@ -88,7 +88,11 @@ def pair_counts(spec_gal_file, spec_ran_file, phot_gal_file, phot_ran_file,
     spec_ran = QTable.read(spec_ran_file)
     phot_gal = QTable.read(phot_gal_file)
     phot_ran = QTable.read(phot_ran_file)
-    
+
+    # Remove Legacy PSF sources
+    if exclude_psf:
+        phot_gal = phot_gal[phot_gal['LTYPE'] != 'PSF']
+        
     # Select points in overlap between catalogues
     hpmask = healpixMask(spec_ran, phot_ran)
     spec_gal = spec_gal[hpmask.select(spec_gal, plot=out_dir+'/heal_sgal.png')]
