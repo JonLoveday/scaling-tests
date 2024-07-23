@@ -202,11 +202,11 @@ class Corr1d(object):
         #     if estimator == 'phx':
         #         self.est = nran/ngal * d1d2['npairs']/d2r1['npairs'] - 1
                     
-    def __init__(self, infile):
+    def __init__(self, infile=None):
 
         self.ic = 0
 
-        if '.fits' in infile:
+        if infile:
             # Read treecorr output file
             t = Table.read(infile)
             with fits.open(infile) as hdul:
@@ -324,7 +324,7 @@ class Corr1d(object):
         return popt, pcov
 
     def fit_xi(self, fit_range, p0=[5, 1.7], ax=None, color=None,
-               ftol=1e-3, xtol=1e-3, plot_scale=1):
+               ftol=1e-3, xtol=1e-3, plot_scale=1, ijack=0):
         """Fit a power law to xi(r)."""
 
         def power_law(r, r0, gamma):
@@ -332,9 +332,9 @@ class Corr1d(object):
             return (r0/r)**gamma
 
         sel = ((self.sep >= fit_range[0]) * (self.sep < fit_range[1]) *
-               np.isfinite(self.est) * (self.err > 0) * (self.r1r2 > 10))
+               np.isfinite(self.est_corr(ijack)) * (self.err > 0) * (self.r1r2 > 10))
         popt, pcov = scipy.optimize.curve_fit(
-            power_law, self.sep[sel], self.est_corr()[sel], p0=p0,
+            power_law, self.sep[sel], self.est_corr(ijack)[sel], p0=p0,
             sigma=self.err[sel], ftol=ftol, xtol=xtol)
         if ax:
             try:
@@ -515,6 +515,13 @@ def wcounts_mag(galfile, ranfile, out_dir,
 
     # Read in galaxy and random catalogues, assign patches, and plot
     gal = Table.read(galfile)
+    try:
+        # Remove PSF sources from Legacy data
+        sel = gal['LTYPE'] != 'PSF'
+        print(len(gal[sel]), 'out of', len(gal), 'sources selected')
+        gal = gal[sel]
+    except KeyError:
+        pass
     ran = Table.read(ranfile)
     rancat = treecorr.Catalog(
         ra=ran['RA'], dec=ran['DEC'], ra_units='deg', dec_units='deg',
@@ -555,7 +562,7 @@ def wcounts_mag(galfile, ranfile, out_dir,
         dd.process(galcat)
         dr = treecorr.NNCorrelation(
             min_sep=tmin, max_sep=tmax, nbins=nbins,
-            sep_units='degrees', var_method='jackknife')
+            sep_units='degrees')
         dr.process(galcat, rancat)
         dd.calculateXi(rr=rr, dr=dr)
         xi_jack, w = dd.build_cov_design_matrix('jackknife')

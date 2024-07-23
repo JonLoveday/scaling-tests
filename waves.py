@@ -400,7 +400,7 @@ def w_plot_class(nmag=1, njack=10, fit_range=[0.01, 5], p0=[0.05, 1.7],
 def w_plot(nmag=6, fit_range=[0.01, 5], p0=[0.05, 1.7],
            prefix='wmag_N/',
            Nz_file='/Users/loveday/Data/Legacy/corr/cmass_ngc_Legacy_9/Nz.pkl',
-           xi_pars='/Users/loveday/Data/flagship/xi_pars.pkl'):
+           xi_pars='/Users/loveday/Data/flagship/xi_z.pkl'):
     """w(theta) from angular pair counts in mag bins.
     Use observed N(z) if Nz_file specified, otherwise use LF prediction."""
 

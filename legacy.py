@@ -144,9 +144,9 @@ def select(maglim=22,
 def wcounts_mag(magbins=np.linspace(16, 22, 7)):
     """Legacy auto-pair counts in mag bins using treecorr."""
 
-    # out_dir = '/pscratch/sd/l/loveday/Legacy/corr/Legacy_9'
-    # wcorr.wcounts_mag(legacy_9_gal, legacy_9_ran,
-    #                   out_dir, magbins=magbins)
+    out_dir = '/pscratch/sd/l/loveday/Legacy/corr/Legacy_9'
+    wcorr.wcounts_mag(legacy_9_gal, legacy_9_ran,
+                      out_dir, magbins=magbins)
 
     out_dir = '/pscratch/sd/l/loveday/Legacy/corr/Legacy_10_ngc'
     wcorr.wcounts_mag(
@@ -435,6 +435,28 @@ def w_plot(nz=5, njack=10, fit_range=[0.01, 5], p0=[0.05, 1.7],
                   label=f"z = [{info['zlo']:2.1f}, {info['zhi']:2.1f}]")
         popt, pcov = corr.fit_w(fit_range, p0, ax, color)
         print(popt, pcov)
+    plt.loglog()
+    plt.legend()
+    plt.xlabel(r'$\theta$ / degrees')
+    plt.ylabel(r'$w(\theta)$')
+    plt.show()
+
+
+def w_plot_mag(nmag=6, fit_range=[0.01, 5], p0=[0.05, 1.7]):
+    """w(theta) from angular pair counts in mag bins from treecorr."""
+
+    plt.clf()
+    ax = plt.subplot(111)
+    for imag in range(nmag):
+        infile = f'am{imag}.fits'
+        corr = wcorr.Corr1d(infile)
+        mlo, mhi = corr.meta['MLO'], corr.meta['MHI']
+        m = 0.5*(mlo + mhi)
+        color = next(ax._get_lines.prop_cycler)['color']
+        corr.plot(ax, color=color, label=f"m = [{mlo}, {mhi}]")
+        if fit_range:
+            popt, pcov = corr.fit_w(fit_range, p0, ax, color)
+            print(popt, pcov)
     plt.loglog()
     plt.legend()
     plt.xlabel(r'$\theta$ / degrees')
