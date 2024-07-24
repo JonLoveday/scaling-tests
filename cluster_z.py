@@ -74,7 +74,7 @@ def pair_counts(spec_gal_file, spec_ran_file, phot_gal_file, phot_ran_file,
     def patch_plot(cat, ax, label, ra_shift=False):
         ras = cat.ra
         if ra_shift:
-            ras = np.array(ra) - math.pi
+            ras = np.array(ras) - math.pi
             neg = ras < 0
             ras[neg] += 2*math.pi
         ax.scatter(ras, cat.dec, c=cat.patch, s=0.1)

@@ -13,7 +13,7 @@ import scipy.optimize
 import subprocess
 from astropy import constants as const
 from astropy.coordinates import SkyCoord
-from astropy.table import Table
+from astropy.table import Table, join
 from astropy.wcs import WCS
 from astropy.io import fits
 from astropy import units as u
@@ -493,4 +493,21 @@ def Nz(infile='WAVES-N_0p2_Z22_GalsAmbig_CompletePhotoZ.fits',
     plt.legend()
     plt.xlabel('z')
     plt.ylabel('N(z)')
+    plt.show()
+
+
+def zmag_comp():
+    """Compare SDSS (GAMAII) and VISTA (GAMAIII) z-band magnitudes."""
+
+    tmatch = Table.read('/Users/loveday/Data/gama/DR4/gkvGamaIIMatchesv01.fits')
+    tgkv = Table.read('/Users/loveday/Data/gama/DR4/gkvScienceCatv02.fits')
+    teq = Table.read('/Users/loveday/Data/gama/TilingCatv46.fits')
+
+    teqmatch = join(tmatch, teq, keys='CATAID')
+    t  = join(teqmatch, tgkv, keys='uberID')
+    z_vista = 8.9 - 2.5*np.log10(t['flux_Zt'])
+    plt.clf()
+    plt.scatter(t['Z_MODEL'], z_vista, s=0.1)
+    plt.xlabel('SDSS z model mag')
+    plt.ylabel('VISTA Z mag')
     plt.show()
