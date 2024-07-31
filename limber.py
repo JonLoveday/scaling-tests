@@ -305,7 +305,7 @@ def kcorr(z):
     """Approximate z-band K-correction."""
     return 0.5*z
 
-def w_lum_Nz_fit(cosmo, thetabins, m, xi_pars, be_pars,
+def w_lum_Nz_fit_old(cosmo, thetabins, m, xi_pars, be_pars,
                  plotint=0, pdf=None, plot_den=0):
     """Returns w(theta) for lum-dependent xi(r) correlation length and index
     by evaluating Maddox+1996 eqn 31 using BE fit to number counts N(z)."""
@@ -380,6 +380,69 @@ def w_lum_Nz_fit(cosmo, thetabins, m, xi_pars, be_pars,
         if np.isnan(num):
             pdb.set_trace()
         print('num', m, theta, quad)
+
+        wbins.append(num/denom)
+    return wbins
+
+
+def w_lum_Nz_fit(cosmo, thetabins, m, r0, gamma, be_pars,
+                 plotint=0, pdf=None, plot_den=0, verbose=0):
+    """Returns w(theta) for lum-dependent xi(r) correlation length and index
+    by evaluating Maddox+1996 eqn 31 using BE fit to number counts N(z)
+    and supplied xi(r) parameters for each mag slice."""
+    
+    def denfun(z):
+        """Denominator of Maddox+ eqn 31."""
+        return be_fit(z, *be_pars)
+
+    def xifun(z1, z2):
+        """Numerator of Maddox+ eqn 31."""
+        z = 0.5*(z1+z2)
+        x1 = cosmo.dc(z1)
+        x2 = cosmo.dc(z2)
+        x12 = (x1**2 + x2**2 - 2*x1*x2*np.cos(np.deg2rad(theta)))**0.5
+        return denfun(z1) * denfun(z2) * (r0/x12)**gamma
+
+    zmin, zmax = cosmo._z[0], cosmo._z[-1]
+    z = np.linspace(zmin, zmax, 100)
+
+    if pdf:
+        if plot_den:
+            fig = plt.figure()
+            plt.plot(z, denfun(z))
+            plt.xlabel('Redshift')
+            plt.ylabel('denfun')
+            plt.title(f'mag = {m:4.2f}')
+            pdf.savefig(plt.gcf().number)
+            plt.close(fig)
+        
+        fig = plt.figure()
+        z1, z2 = np.meshgrid(z, z)
+        plt.imshow(xifun(z1, z2), extent=(zmin, zmax, zmax, zmin), norm='log')
+        plt.xlabel('z2')
+        plt.ylabel('z1')
+        plt.title(f'mag = {m:4.2f}, theta = {theta:4.3f}')
+        plt.colorbar()
+        pdf.savefig(plt.gcf().number)
+        plt.close(fig)
+
+
+    quad = scipy.integrate.quad(denfun, zmin, zmax, epsrel=0.01)
+    denom = quad[0]**2
+    if verbose > 0:
+        print('denom', m, quad)
+
+    # num = scipy.integrate.dblquad(xifun, rmin, rmax, lambda x: max(rmin, x-100),
+    #                               lambda x: min(rmax, x+100), epsabs=1e5, epsrel=0.01)[0]
+    wbins = []
+    for theta in thetabins:
+        quad = scipy.integrate.dblquad(xifun, zmin, zmax, zmin, zmax,
+                                       epsrel=0.01)
+        num = quad[0]
+        if np.isnan(num):
+            pdb.set_trace()
+        if verbose > 0:
+            print('num', m, theta, quad)
 
         wbins.append(num/denom)
     return wbins

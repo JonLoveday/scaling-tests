@@ -101,18 +101,18 @@ def pair_counts(spec_gal_file, spec_ran_file, phot_gal_file, phot_ran_file,
     phot_ran = phot_ran[hpmask.select(phot_ran, plot=out_dir+'/heal_pran.png')]
 
     # Read catalogues, assign patches, and plot
-    spec_ran_cat = treecorr.Catalog(
-        ra=spec_ran['RA'], dec=spec_ran['DEC'], ra_units='deg', dec_units='deg',
-        npatch=npatch)
-    spec_gal_cat = treecorr.Catalog(
-        ra=spec_gal['RA'], dec=spec_gal['DEC'], ra_units='deg', dec_units='deg',
-        npatch=npatch)
     phot_ran_cat = treecorr.Catalog(
         ra=phot_ran['RA'], dec=phot_ran['DEC'], ra_units='deg', dec_units='deg',
-        patch_centers=spec_ran_cat.patch_centers)
+        npatch=npatch)
     phot_gal_cat = treecorr.Catalog(
         ra=phot_gal['RA'], dec=phot_gal['DEC'], ra_units='deg', dec_units='deg',
-        patch_centers=spec_ran_cat.patch_centers)
+        patch_centers=phot_ran_cat.patch_centers)
+    spec_ran_cat = treecorr.Catalog(
+        ra=spec_ran['RA'], dec=spec_ran['DEC'], ra_units='deg', dec_units='deg',
+        patch_centers=phot_ran_cat.patch_centers)
+    spec_gal_cat = treecorr.Catalog(
+        ra=spec_gal['RA'], dec=spec_gal['DEC'], ra_units='deg', dec_units='deg',
+        patch_centers=phot_ran_cat.patch_centers)
     ra_shift = 'sgc' in out_dir
     fig, axes = plt.subplots(2, 2, sharex=True, sharey=True, num=1)
     fig.set_size_inches(8, 8)
@@ -124,33 +124,30 @@ def pair_counts(spec_gal_file, spec_ran_file, phot_gal_file, phot_ran_file,
     plt.show()
     plt.savefig(out_dir + '/patch.png')
 
-    # spec-spec and spec-phot random-random counts
-    bins = np.logspace(np.log10(tmin), np.log10(tmax), nbins + 1)
-    tcen = 10**(0.5*np.diff(np.log10(bins)) + np.log10(bins[:-1]))
-
-    spec_rr = treecorr.NNCorrelation(min_sep=tmin, max_sep=tmax, nbins=nbins,
-                                     sep_units='degrees')
-    spec_rr.process(spec_ran_cat)
-
-    spec_phot_rr = treecorr.NNCorrelation(min_sep=tmin, max_sep=tmax, nbins=nbins,
-                                          sep_units='degrees')
-    spec_phot_rr.process(spec_ran_cat, phot_ran_cat)
-
     mag = mag_fn(phot_gal)
-    z = spec_gal[z_col]
+    z_gal = spec_gal[z_col]
+    z_ran = spec_ran[z_col]
+    rr_list = []
     rd_list = []
-
 
     # spec auto-pair counts in redshift bins
     for iz in range(len(zbins) - 1):
         zlo, zhi = zbins[iz], zbins[iz+1]
-        sel = (zlo <= z) * (z < zhi)
-        zmean = np.mean(z[sel])
+        sel = (zlo <= z_gal) * (z_gal < zhi)
+        zmean = np.mean(z_gal[sel])
         spec_gal_cat = treecorr.Catalog(
             ra=spec_gal['RA'][sel], dec=spec_gal['DEC'][sel],
             ra_units='deg', dec_units='deg',
-            patch_centers=spec_ran_cat.patch_centers)
+            patch_centers=phot_ran_cat.patch_centers)
+        sel = (zlo <= z_ran) * (z_ran < zhi)
+        spec_ran_cat = treecorr.Catalog(
+            ra=spec_ran['RA'][sel], dec=spec_ran['DEC'][sel],
+            ra_units='deg', dec_units='deg',
+            patch_centers=phot_ran_cat.patch_centers)
 
+        spec_rr = treecorr.NNCorrelation(min_sep=tmin, max_sep=tmax, nbins=nbins,
+                                        sep_units='degrees')
+        spec_rr.process(spec_ran_cat)
         spec_dr = treecorr.NNCorrelation(
             min_sep=tmin, max_sep=tmax, nbins=nbins, sep_units='degrees')
         spec_dr.process(spec_gal_cat, spec_ran_cat)
@@ -183,15 +180,20 @@ def pair_counts(spec_gal_file, spec_ran_file, phot_gal_file, phot_ran_file,
             phot_gal_cat = treecorr.Catalog(
                 ra=phot_gal['RA'][sel], dec=phot_gal['DEC'][sel],
                 ra_units='deg', dec_units='deg',
-                patch_centers=spec_ran_cat.patch_centers)
+                patch_centers=phot_ran_cat.patch_centers)
 
             if iz == 0:
+                spec_phot_rr = treecorr.NNCorrelation(min_sep=tmin, max_sep=tmax, nbins=nbins,
+                                                    sep_units='degrees')
+                spec_phot_rr.process(spec_ran_cat, phot_ran_cat)
                 spec_phot_rd = treecorr.NNCorrelation(
                     min_sep=tmin, max_sep=tmax, nbins=nbins,
-                    sep_units='degrees', var_method='jackknife')
+                    sep_units='degrees')
                 spec_phot_rd.process(spec_ran_cat, phot_gal_cat)
+                rr_list.append(spec_phot_rr)
                 rd_list.append(spec_phot_rd)
             else:
+                spec_phot_rr = rr_list[im]
                 spec_phot_rd = rd_list[im]
 
             spec_phot_dd = treecorr.NNCorrelation(
@@ -338,15 +340,18 @@ def Nz(fit_range=[0.001, 1], p0=[0.05, 1.7], rmin=0.01, rmax=10, ylim=(-0.5, 1))
         pmz_err[:, im] = (njack-1)**0.5 * np.std(pmz_jack[:, :, im], axis=0)
         ax.errorbar(zmean, pmz[:, im], pmz_err[:, im])
         sel = pmz_err[:, im] > 0
-        popt, pcov = scipy.optimize.curve_fit(
-            be_fit, zmean[sel],  pmz[sel, im], sigma=pmz_err[sel, im],
-            p0=(0.5, 2.0, 1.5, 1), ftol=1e-3, xtol=1e-3)
-        ax.plot(zmean, be_fit(zmean, *popt), ls='-')
-        be_pars[:, im] = popt
-        print(popt)
+        try:
+            popt, pcov = scipy.optimize.curve_fit(
+                be_fit, zmean[sel],  pmz[sel, im], sigma=pmz_err[sel, im],
+                p0=(0.5, 2.0, 1.5, 1), ftol=1e-3, xtol=1e-3)
+            ax.plot(zmean, be_fit(zmean, *popt), ls='-')
+            be_pars[:, im] = popt
+            print(popt)
+        except RuntimeError:
+            print('Error in fit')
         ax.text(0.1, 1.05, f"m=[{mlo[im]}, {mhi[im]}]",
                 transform=ax.transAxes)
-        print(zmean, pmz[:, im], pmz_err[:, im])
+        # print(zmean, pmz[:, im], pmz_err[:, im])
     axes[nm//2].set_xlabel(r'Redshift')
     axes[0].set_ylabel(r'$N(z)$')
     plt.ylim(ylim)

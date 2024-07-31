@@ -400,12 +400,14 @@ def w_plot_class(nmag=1, njack=10, fit_range=[0.01, 5], p0=[0.05, 1.7],
 def w_plot(nmag=6, fit_range=[0.01, 5], p0=[0.05, 1.7],
            prefix='wmag_N/',
            Nz_file='/Users/loveday/Data/Legacy/corr/cmass_ngc_Legacy_9/Nz.pkl',
-           xi_pars='/Users/loveday/Data/flagship/xi_z.pkl'):
+           xi_pars='/Users/loveday/Data/flagship/xi_z_mag.pkl'):
     """w(theta) from angular pair counts in mag bins.
     Use observed N(z) if Nz_file specified, otherwise use LF prediction."""
 
     if Nz_file:
         (zmean, pmz, pmz_err, Nz_mlo, Nz_mhi, be_pars) = pickle.load(open(Nz_file, 'rb'))
+        (xi_mlo, xi_mhi, r0, gamma) = pickle.load(open(xi_pars, 'rb'))
+
     plt.clf()
     ax = plt.subplot(111)
     corr_slices = []
@@ -420,10 +422,12 @@ def w_plot(nmag=6, fit_range=[0.01, 5], p0=[0.05, 1.7],
             popt, pcov = corr.fit_w(fit_range, p0, ax, color)
             print(popt, pcov)
         if Nz_file:
-            if (mlo == Nz_mlo[imag]) and (mhi == Nz_mhi[imag]):
-                wlim = limber.w_lum_Nz_fit(cosmo, corr.sep, m, xi_pars, be_pars[:, imag-1],
-                                       plotint=0, pdf=None, plot_den=0)
+            if (mlo == Nz_mlo[imag] == xi_mlo[imag]) and (mhi == Nz_mhi[imag] == xi_mhi[imag]):
+                wlim = limber.w_lum_Nz_fit(cosmo, corr.sep, m, r0[imag],
+                                           gamma[imag], be_pars[:, imag], # was imag-1
+                                           plotint=0, pdf=None, plot_den=0)
                 plt.plot(corr.sep, wlim, '--', color=color)
+                print(imag, r0[imag], gamma[imag], be_pars[:, imag])
             else:
                 print('mismatched magnitude limits', mlo, Nz_mlo[imag], mhi, Nz_mhi[imag])
     plt.loglog()

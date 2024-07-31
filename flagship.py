@@ -75,6 +75,17 @@ Nz_file = f'Nz_{band}.pkl'
 lf_file = f'lf_{band}.pkl'
 xi_file = f'xi_{band}.pkl'
 
+def stats():
+    """Absolute mag and redshift stats for apparent mag bins."""
+
+    t = Table.read(infile)
+    mag = t[band+'mag']
+    for imag in range(len(magbins) - 1):
+        sel = (magbins[imag] <= mag) * (mag < magbins[imag+1])
+        print(imag, np.percentile(t[band+'abs'].value[sel], (5, 50, 95)),
+              np.percentile(t['true_redshift_gal'].value[sel], (5, 50, 95)))
+
+
 def wcounts(mask_file='mask.ply',
             limits=(180, 200, 0, 20), nran=100000, nra=4, ndec=4,
             tmin=0.01, tmax=10, nbins=20, plots=1, mag_offset=0):
@@ -220,10 +231,10 @@ def xir_counts_corrfunc(mask_file='mask.ply',
         pool.join()
 
 
-def xir_counts(mask_file='mask.ply', 
-               zbins=np.linspace(0, 2, 11), limits=(180, 200, 0, 20),
-               ranfac=1, npatch=9, rmin=0.1, rmax=100, nbins=16,
-               out_dir=f'xir_M_z_{band}'):
+def xir_M_z(mask_file='mask.ply', 
+            zbins=np.linspace(0, 2, 11), limits=(180, 200, 0, 20),
+            ranfac=1, npatch=9, rmin=0.1, rmax=100, nbins=16,
+            out_dir=f'xir_M_z_{band}'):
     """Real-space pair counts in magnitude and redshift bins using treecorr."""
 
     # Create out_dir if it doesn't already exist
@@ -288,6 +299,71 @@ def xir_counts(mask_file='mask.ply',
                     hdr['Nran'] = rancat.nobj
                     hdul.append(fits.PrimaryHDU(xi_jack))
                     hdul.flush()
+
+
+def xir_app_mag(mask_file='mask.ply', limits=(180, 200, 0, 20),
+               ranfac=1, npatch=9, rmin=0.1, rmax=100, nbins=16,
+               out_dir=f'xir_mag_{band}'):
+    """Real-space pair counts in apparent magnitude bins using treecorr."""
+
+    # Create out_dir if it doesn't already exist
+    Path(out_dir).mkdir(parents=True, exist_ok=True)
+
+    nm = len(magbins) - 1
+   
+    t = Table.read(infile)
+    sel = t[band+'mag'] < magbins[-1]
+    t = t[sel]
+    ra, dec, mag = t['ra_gal'], t['dec_gal'], t[band+'mag']
+    redshift = t['true_redshift_gal']
+    r = cosmo.dc(redshift)
+    mask = pymangle.Mangle(mask_file)
+
+    for im in range(nm):
+        mlo, mhi = magbins[im], magbins[im+1]
+        sel = (mlo <= mag) * (mag < mhi)
+        mmean = np.mean(mag[sel])
+        Mmean = np.mean(t[band+'abs'][sel])
+        zmean = np.mean(redshift[sel])
+        ngal = len(ra[sel])
+        nran = int(ranfac*ngal)
+        rar, decr = mask.genrand_range(nran, *limits)
+        rr = rng.choice(r[sel], nran, replace=True)
+        rancat = treecorr.Catalog(
+            ra=rar.astype('float64'), dec=decr.astype('float64'), r=rr,
+            ra_units='deg', dec_units='deg', npatch=npatch)
+        galcat = treecorr.Catalog(
+            ra=ra[sel], dec=dec[sel], r=r[sel],
+            ra_units='deg', dec_units='deg',
+            patch_centers=rancat.patch_centers)
+
+        print(f'mag bin {im} ngal = {ngal}, nran = {nran}')
+        dd = treecorr.NNCorrelation(
+            min_sep=rmin, max_sep=rmax, nbins=nbins,
+            var_method='jackknife')
+        dd.process(galcat)
+        dr = treecorr.NNCorrelation(
+            min_sep=rmin, max_sep=rmax, nbins=nbins)
+        dr.process(galcat, rancat)
+        rr = treecorr.NNCorrelation(
+            min_sep=rmin, max_sep=rmax, nbins=nbins)
+        rr.process(rancat)
+        dd.calculateXi(rr=rr, dr=dr)
+        xi_jack, w = dd.build_cov_design_matrix('jackknife')
+        outfile = f'{out_dir}/xir_im{im}.fits'
+        dd.write(outfile, rr=rr, dr=dr)
+        with fits.open(outfile, mode='update') as hdul:
+            hdr = hdul[1].header
+            hdr['Mlo'] = mlo
+            hdr['Mhi'] = mhi
+            hdr['M_app_mean'] = mmean
+            hdr['M_abs_mean'] = Mmean
+            hdr['zmean'] = zmean
+            hdr['Ngal'] = galcat.nobj
+            hdr['Nran'] = rancat.nobj
+            hdul.append(fits.PrimaryHDU(xi_jack))
+            hdul.flush()
+
 
 
 def hists(infile='14516.fits', Mbins=np.linspace(-26, -16, 41),
@@ -1430,6 +1506,61 @@ def xir_M_z_plot(nm=5, nz=10, njack=9, fit_range=[0.1, 20], p0=[5, 1.7],
     #             ax.errorbar(Mmean[:, iz], gamma[:, iz], gamma_err[:, iz])
     #             ax.plot(Mmean[:, iz], gam_gp.predict(Mz))
     # plt.show()
+
+
+def xir_mag_plot(nm=6, fit_range=[0.1, 20], p0=[5, 1.7],
+                 xiscale=0, outfile='xi_z_mag.pkl'):
+    """xi(r) from pair counts in apparent magnitude bins from treecorr."""
+
+    prefix = f'xir_mag_{band}/'
+    mlo, mhi, mmean = np.zeros(nm), np.zeros(nm), np.zeros(nm)
+    r0, gamma = np.zeros(nm), np.zeros(nm)
+    r0_err, gamma_err = np.zeros(nm), np.zeros(nm)
+    plt.ioff()
+    plt.clf()
+    ax = plt.subplot(111)
+    
+    if xiscale:
+        ax.set_ylabel(r'$r^2 \xi(r)$')
+        ax.set_ylabel(r'$r^2 \xi(r)$')
+    else:
+        ax.set_ylabel(r'$\xi(r)$')
+        ax.set_ylabel(r'$\xi(r)$')
+    ax.set_xlabel(r'$r$ [Mpc/h]')
+    for im in range(nm):
+        color = next(ax._get_lines.prop_cycler)['color']
+        infile = f'{prefix}xir_im{im}.fits'
+        corr = wcorr.Corr1d(infile)
+        mlo[im], mhi[im] = corr.meta['MLO'], corr.meta['MHI']
+        if xiscale:
+            popt, pcov = corr.fit_xi(fit_range, p0, ax, color,
+                                    plot_scale=corr.sep**2)
+            ax.errorbar(corr.sep, corr.sep**2*corr.est_corr(),
+                        corr.sep**2*corr.err, color=color, fmt='o',
+                        label=rf"$m_{band} = [{mlo[im]:3.1f}, {mhi[im]:3.1f}]$")
+        else:
+            popt, pcov = corr.fit_xi(fit_range, p0, ax, color)
+            ax.errorbar(corr.sep, corr.est_corr(),
+                        corr.err, color=color, fmt='o',
+                        label=rf"$m_{band} = [{mlo[im]:3.1f}, {mhi[im]:3.1f}]$")
+        mmean[im] = corr.meta['M_app_mean']
+        r0[im], gamma[im] = popt
+        r0_err[im], gamma_err[im] = pcov[0, 0]**0.5, pcov[1, 1]**0.5
+        print(popt)
+    pickle.dump((mlo, mhi, r0, gamma), open(outfile, 'wb'))
+    plt.loglog()
+    plt.legend()
+    plt.show()
+
+    fig, axes = plt.subplots(2, 1, sharex=True, sharey='row', num=2)
+    fig.set_size_inches(4, 8)
+    fig.subplots_adjust(hspace=0, wspace=0)
+    axes[0].set_ylabel(r'$r_0$')
+    axes[0].errorbar(mmean, r0, r0_err)
+    axes[1].set_ylabel(r'$\gamma$')
+    axes[1].errorbar(mmean, gamma, gamma_err)
+    axes[1].set_xlabel(r'$m_z$')
+    plt.show()
 
 
 def kcorr(nplot=100000):
