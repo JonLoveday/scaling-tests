@@ -63,10 +63,10 @@ class healpixMask:
     
 
 def pair_counts(spec_gal_file, spec_ran_file, phot_gal_file, phot_ran_file,
-                out_dir, mag_fn, z_col='Z', 
+                out_dir, mag_fn, ra_col='RA', dec_col='DEC', z_col='Z', 
                 magbins=np.linspace(18, 23, 6), zbins=np.linspace(0.0, 1.0, 11),
                 tmin=0.001, tmax=10, nbins=20, nran=1, npatch=9,
-                nside=64, f_occ=0.5, exclude_psf=True):
+                nside=64, f_occ=0.5, exclude_psf=True, identify_overlap=True):
     """Perform paircounts using treecorr.
     Auto-counts for spec sample in redshift bins.
     Cross-corr between spec redshift bins and phot mag bins."""
@@ -94,25 +94,28 @@ def pair_counts(spec_gal_file, spec_ran_file, phot_gal_file, phot_ran_file,
         phot_gal = phot_gal[phot_gal['LTYPE'] != 'PSF']
         
     # Select points in overlap between catalogues
-    hpmask = healpixMask(spec_ran, phot_ran)
-    spec_gal = spec_gal[hpmask.select(spec_gal, plot=out_dir+'/heal_sgal.png')]
-    spec_ran = spec_ran[hpmask.select(spec_ran, plot=out_dir+'/heal_sran.png')]
-    phot_gal = phot_gal[hpmask.select(phot_gal, plot=out_dir+'/heal_pgal.png')]
-    phot_ran = phot_ran[hpmask.select(phot_ran, plot=out_dir+'/heal_pran.png')]
+    if identify_overlap:
+        hpmask = healpixMask(spec_ran, phot_ran)
+        spec_gal = spec_gal[hpmask.select(spec_gal, plot=out_dir+'/heal_sgal.png')]
+        spec_ran = spec_ran[hpmask.select(spec_ran, plot=out_dir+'/heal_sran.png')]
+        phot_gal = phot_gal[hpmask.select(phot_gal, plot=out_dir+'/heal_pgal.png')]
+        phot_ran = phot_ran[hpmask.select(phot_ran, plot=out_dir+'/heal_pran.png')]
 
-    # Read catalogues, assign patches, and plot
+    # Read catalogues, assign patches, and plot.
+    # Define patches using phot_ran_cat.
     phot_ran_cat = treecorr.Catalog(
-        ra=phot_ran['RA'], dec=phot_ran['DEC'], ra_units='deg', dec_units='deg',
+        ra=phot_ran[ra_col], dec=phot_ran[dec_col], ra_units='deg', dec_units='deg',
         npatch=npatch)
+    patch_centers = phot_ran_cat.patch_centers
     phot_gal_cat = treecorr.Catalog(
-        ra=phot_gal['RA'], dec=phot_gal['DEC'], ra_units='deg', dec_units='deg',
-        patch_centers=phot_ran_cat.patch_centers)
+        ra=phot_gal[ra_col], dec=phot_gal[dec_col], ra_units='deg', dec_units='deg',
+        patch_centers=patch_centers)
     spec_ran_cat = treecorr.Catalog(
-        ra=spec_ran['RA'], dec=spec_ran['DEC'], ra_units='deg', dec_units='deg',
-        patch_centers=phot_ran_cat.patch_centers)
+        ra=spec_ran[ra_col], dec=spec_ran[dec_col], ra_units='deg', dec_units='deg',
+        patch_centers=patch_centers)
     spec_gal_cat = treecorr.Catalog(
-        ra=spec_gal['RA'], dec=spec_gal['DEC'], ra_units='deg', dec_units='deg',
-        patch_centers=phot_ran_cat.patch_centers)
+        ra=spec_gal[ra_col], dec=spec_gal[dec_col], ra_units='deg', dec_units='deg',
+        patch_centers=patch_centers)
     ra_shift = 'sgc' in out_dir
     fig, axes = plt.subplots(2, 2, sharex=True, sharey=True, num=1)
     fig.set_size_inches(8, 8)
@@ -124,30 +127,30 @@ def pair_counts(spec_gal_file, spec_ran_file, phot_gal_file, phot_ran_file,
     plt.show()
     plt.savefig(out_dir + '/patch.png')
 
+    # spec-spec and spec-phot random-random counts
+
+    spec_rr = treecorr.NNCorrelation(min_sep=tmin, max_sep=tmax, nbins=nbins,
+                                     sep_units='degrees')
+    spec_rr.process(spec_ran_cat)
+
+    spec_phot_rr = treecorr.NNCorrelation(min_sep=tmin, max_sep=tmax, nbins=nbins,
+                                          sep_units='degrees')
+    spec_phot_rr.process(spec_ran_cat, phot_ran_cat)
+
     mag = mag_fn(phot_gal)
-    z_gal = spec_gal[z_col]
-    z_ran = spec_ran[z_col]
-    rr_list = []
+    z = spec_gal[z_col]
     rd_list = []
 
     # spec auto-pair counts in redshift bins
     for iz in range(len(zbins) - 1):
         zlo, zhi = zbins[iz], zbins[iz+1]
-        sel = (zlo <= z_gal) * (z_gal < zhi)
-        zmean = np.mean(z_gal[sel])
+        sel = (zlo <= z) * (z < zhi)
+        zmean = np.mean(z[sel])
         spec_gal_cat = treecorr.Catalog(
-            ra=spec_gal['RA'][sel], dec=spec_gal['DEC'][sel],
+            ra=spec_gal[ra_col][sel], dec=spec_gal[dec_col][sel],
             ra_units='deg', dec_units='deg',
-            patch_centers=phot_ran_cat.patch_centers)
-        sel = (zlo <= z_ran) * (z_ran < zhi)
-        spec_ran_cat = treecorr.Catalog(
-            ra=spec_ran['RA'][sel], dec=spec_ran['DEC'][sel],
-            ra_units='deg', dec_units='deg',
-            patch_centers=phot_ran_cat.patch_centers)
+            patch_centers=patch_centers)
 
-        spec_rr = treecorr.NNCorrelation(min_sep=tmin, max_sep=tmax, nbins=nbins,
-                                        sep_units='degrees')
-        spec_rr.process(spec_ran_cat)
         spec_dr = treecorr.NNCorrelation(
             min_sep=tmin, max_sep=tmax, nbins=nbins, sep_units='degrees')
         spec_dr.process(spec_gal_cat, spec_ran_cat)
@@ -178,22 +181,17 @@ def pair_counts(spec_gal_file, spec_ran_file, phot_gal_file, phot_ran_file,
             mlo, mhi = magbins[im], magbins[im+1]
             sel = (mlo <= mag) * (mag < mhi)
             phot_gal_cat = treecorr.Catalog(
-                ra=phot_gal['RA'][sel], dec=phot_gal['DEC'][sel],
+                ra=phot_gal[ra_col][sel], dec=phot_gal[dec_col][sel],
                 ra_units='deg', dec_units='deg',
-                patch_centers=phot_ran_cat.patch_centers)
+                patch_centers=patch_centers)
 
             if iz == 0:
-                spec_phot_rr = treecorr.NNCorrelation(min_sep=tmin, max_sep=tmax, nbins=nbins,
-                                                    sep_units='degrees')
-                spec_phot_rr.process(spec_ran_cat, phot_ran_cat)
                 spec_phot_rd = treecorr.NNCorrelation(
                     min_sep=tmin, max_sep=tmax, nbins=nbins,
                     sep_units='degrees')
                 spec_phot_rd.process(spec_ran_cat, phot_gal_cat)
-                rr_list.append(spec_phot_rr)
                 rd_list.append(spec_phot_rd)
             else:
-                spec_phot_rr = rr_list[im]
                 spec_phot_rd = rd_list[im]
 
             spec_phot_dd = treecorr.NNCorrelation(
@@ -222,9 +220,10 @@ def be_fit(z, zc, alpha, beta, norm):
     """Generalised Baugh & Efstathiou (1993, eqn 7) model for N(z)."""
     return norm * z**alpha * np.exp(-(z/zc)**beta)
 
-def Nz(fit_range=[0.001, 1], p0=[0.05, 1.7], rmin=0.01, rmax=10, ylim=(-0.5, 1)):
+def Nz(fit_range=[0.001, 1], p0=[0.05, 1.7], rmin=0.01, rmax=10, ylim=(-0.5, 1), weight=-1):
     """Cluster redshifts from angular clustering of galaxies in mag bins about
-    reference sample in redshift bins."""
+    reference sample in redshift bins.
+    w(theta) integral is weighted by theta^weight."""
 
     nz = len(glob.glob('az*.fits'))
     nm = len(glob.glob('xz0m*.fits'))
@@ -240,25 +239,18 @@ def Nz(fit_range=[0.001, 1], p0=[0.05, 1.7], rmin=0.01, rmax=10, ylim=(-0.5, 1))
     fig.subplots_adjust(hspace=0, wspace=0)
     for iz in range(nz):
         infile = f'az{iz}.fits'
-        # t = Table.read(infile)
-        # with fits.open(infile) as hdul:
-        #     xi_jack = hdul[2].data
         corr = wcorr.Corr1d(infile)
-        # corr.sep = t['meanr']
-        # corr.est = np.vstack((t['xi'], xi_jack))
-        # corr.err = t['sigma_xi']
-        # corr.r1r2 = t['RR']
         ax = axes[iz]
         corr.plot(ax=ax)
         popt, pcov = corr.fit_w(fit_range, p0, ax)
         A = popt[0]
-        omg = 1 - popt[1]
+        pwr = 2 + weight - popt[1]
         ax.text(0.0, 1.05, f"z=[{corr.meta['ZLO']:3.2f}, {corr.meta['ZHI']:3.2f}]",
                 transform=ax.transAxes)
         zmean[iz] = corr.meta['ZMEAN']
         d[iz] = cosmo.comoving_distance(zmean[iz]).value
         tmin, tmax = 180/math.pi*rmin/d[iz], 180/math.pi*rmax/d[iz]
-        w_rr_av[iz] = A/omg*(tmax**omg - tmin**omg)
+        w_rr_av[iz] = A/pwr*(tmax**pwr - tmin**pwr)
         print(f'{zmean[iz]:4.3f}, {d[iz]:4.3f}, {popt[0]:4.3f}, {popt[1]:4.3f}, {tmin:4.3e}, {tmax:4.3e}, {w_rr_av[iz]:4.3f}')
         ax.axvline(tmin, c='g')
         ax.axvline(tmax, c='g')
@@ -267,8 +259,8 @@ def Nz(fit_range=[0.001, 1], p0=[0.05, 1.7], rmin=0.01, rmax=10, ylim=(-0.5, 1))
         for ijack in range(njack):
             popt, pcov = corr.fit_w(fit_range, p0, ax, ijack=ijack+1)
             A = popt[0]
-            omg = 1 - popt[1]
-            w_rr_av_jack[ijack, iz] = A/omg*(tmax**omg - tmin**omg)
+            pwr = 2 + weight - popt[1]
+            w_rr_av_jack[ijack, iz] = A/pwr*(tmax**pwr - tmin**pwr)
             
     plt.loglog()
     axes[nz//2].set_xlabel(r'$\theta$ / degrees')
@@ -286,19 +278,12 @@ def Nz(fit_range=[0.001, 1], p0=[0.05, 1.7], rmin=0.01, rmax=10, ylim=(-0.5, 1))
     for iz in range(nz):
         for im in range(nm):
             infile = f'xz{iz}m{im}.fits'
-            # t = Table.read(infile)
-            # with fits.open(infile) as hdul:
-            #     xi_jack = hdul[2].data
             corr = wcorr.Corr1d(infile)
-            # corr.sep = t['meanr']
-            # corr.est = np.vstack((t['xi'], xi_jack))
-            # corr.err = t['sigma_xi']
-            # corr.r1r2 = t['RR']
             ax = axes[im, iz]
             corr.plot(ax=ax)
             popt, pcov = corr.fit_w(fit_range, p0, ax)
             A = popt[0]
-            omg = 1 - popt[1]
+            pwr = 2 + weight - popt[1]
             mlo[im], mhi[im] = corr.meta['MLO'], corr.meta['MHI']
             if im == 0:
                 ax.text(0.1, 1.05, f"z=[{corr.meta['ZLO']:3.2f}, {corr.meta['ZHI']:3.2f}]",
@@ -307,7 +292,7 @@ def Nz(fit_range=[0.001, 1], p0=[0.05, 1.7], rmin=0.01, rmax=10, ylim=(-0.5, 1))
                 ax.text(1.05, 0.5, f"m=[{mlo[im]:3.1f}, {mhi[im]:3.1f}]",
                         transform=ax.transAxes)
             tmin, tmax = 180/math.pi*rmin/d[iz], 180/math.pi*rmax/d[iz]
-            w_rt_av[iz, im] = A/omg*(tmax**omg - tmin**omg)
+            w_rt_av[iz, im] = A/pwr*(tmax**pwr - tmin**pwr)
             print(f'{zmean[iz]:4.3f}, {d[iz]:4.3f}, {im}, {popt[0]:4.3f}, {popt[1]:4.3f}, {tmin:4.3e}, {tmax:4.3e}, {w_rt_av[iz, im]:4.3f}')
             ax.axvline(tmin, c='g')
             ax.axvline(tmax, c='g')
@@ -316,8 +301,8 @@ def Nz(fit_range=[0.001, 1], p0=[0.05, 1.7], rmin=0.01, rmax=10, ylim=(-0.5, 1))
             for ijack in range(njack):
                 popt, pcov = corr.fit_w(fit_range, p0, ax, ijack=ijack+1)
                 A = popt[0]
-                omg = 1 - popt[1]
-                w_rt_av_jack[ijack, iz, im] = A/omg*(tmax**omg - tmin**omg)
+                pwr = 2 + weight - popt[1]
+                w_rt_av_jack[ijack, iz, im] = A/pwr*(tmax**pwr - tmin**pwr)
             print(np.array_str(w_rt_av_jack[:, iz, im], precision=3))
     plt.loglog()
     axes[nm-1, nz//2].set_xlabel(r'$\theta$ / degrees')
@@ -338,6 +323,9 @@ def Nz(fit_range=[0.001, 1], p0=[0.05, 1.7], rmin=0.01, rmax=10, ylim=(-0.5, 1))
         for ijack in range(njack):
             pmz_jack[ijack, :, im] = w_rt_av_jack[ijack, :, im]/w_rr_av_jack[ijack, :]**0.5
         pmz_err[:, im] = (njack-1)**0.5 * np.std(pmz_jack[:, :, im], axis=0)
+        bad = np.isinf(pmz[:, im]) + np.isnan(pmz[:, im])
+        pmz[bad, im] = 0
+        pmz_err[bad, im] = 1
         ax.errorbar(zmean, pmz[:, im], pmz_err[:, im])
         sel = pmz_err[:, im] > 0
         try:

@@ -29,7 +29,7 @@ import Corrfunc
 import pymangle
 import treecorr
 
-import calc_kcor
+import cluster_z
 import limber
 import util
 import wcorr
@@ -365,6 +365,76 @@ def xir_app_mag(mask_file='mask.ply', limits=(180, 200, 0, 20),
             hdul.flush()
 
 
+def cz_test(phot_gal=infile, spec_gal='spec_gal.fits',
+            phot_ran='phot_ran.fits', spec_ran='spec_ran.fits',
+            mask_file='mask.ply', ra_col='ra_gal', dec_col='dec_gal', 
+            z_col='true_redshift_gal', zbins=np.linspace(0, 2, 11),
+            magbins=np.linspace(16, 22, 7),
+            limits=(180, 200, 0, 20),
+            ranfac=1, npatch=9, rmin=0.1, rmax=100, nbins=16,
+            out_dir=f'cz_test', spec_frac=0.01):
+    """Test cluster-z using spec_frac of flagship as reference spectroscopic sample."""
+
+    def mag_fn(t):
+        """Flagship magnitudes."""
+        return t['zmag']
+
+    t = Table.read(infile)
+    redshift = t[z_col]
+    nphot = len(redshift)
+    nspec = int(spec_frac*nphot)
+    sel = rng.choice(nphot, nspec, replace=False)
+    tspec = t[sel]
+    tspec.write(spec_gal, overwrite=True)
+
+    nran = int(ranfac*nphot)
+    mask = pymangle.Mangle(mask_file)
+    rar, decr = mask.genrand_range(nran, *limits)
+    tran = Table((rar.astype(np.float64), decr.astype(np.float64)), 
+                 names=(ra_col, dec_col))
+    tran.write(phot_ran, overwrite=True)
+
+    nran = int(ranfac*nspec)
+    rar, decr = mask.genrand_range(nran, *limits)
+    zr = rng.choice(redshift, nran, replace=True)
+    tran = Table((rar.astype(np.float64), decr.astype(np.float64), zr),
+                 names=(ra_col, dec_col, z_col))
+    tran.write(spec_ran, overwrite=True)
+
+    cluster_z.pair_counts(
+            spec_gal, spec_ran, phot_gal, phot_ran, out_dir, mag_fn=mag_fn,
+            ra_col=ra_col, dec_col=dec_col, z_col=z_col,
+            zbins=zbins, magbins=magbins, npatch=9,
+            exclude_psf=False, identify_overlap=False)
+
+
+def Nz_comp(infile=infile, Nz_file='cz_test/Nz.pkl', z_col='true_redshift_gal', zbins=np.linspace(0, 2, 41)):
+    """Compare flagship N(z) in mag bins with cluster_z prediction."""
+
+    (zmean, pmz, pmz_err, mlo, mhi, be_pars) = pickle.load(open(Nz_file, 'rb'))
+    nmag = len(mlo)
+    t = Table.read(infile)
+    redshift = t[z_col]
+    mag = t['zmag']
+
+    fig, axes = plt.subplots(1, nmag, sharex=True, sharey=True)
+    fig.set_size_inches(8, 4)
+    fig.subplots_adjust(hspace=0, wspace=0)
+
+    for imag in range(nmag):
+        sel = (mlo[imag] <= mag) * (mag < mhi[imag])
+        ax = axes[imag]
+        ax.hist(redshift[sel], bins=zbins)
+        be_int, err = scipy.integrate.quad(be_fit, zbins[0], zbins[-1], args=be_pars[:, imag])
+        norm = (zbins[1]-zbins[0])*len(redshift[sel])/be_int
+        # pdb.pm()
+        ax.plot(zmean, norm*be_fit(zmean, be_pars[:, imag]))
+        ax.text(0.1, 1.05, f"m=[{mlo[imag]}, {mhi[imag]}]",
+                transform=ax.transAxes)
+    axes[nmag//2].set_xlabel(r'Redshift')
+    axes[0].set_ylabel(r'$N(z)$')
+    plt.show()
+
 
 def hists(infile='14516.fits', Mbins=np.linspace(-26, -16, 41),
           zbins=np.linspace(0, 1, 6)):
@@ -489,6 +559,12 @@ def w_plot(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7],
 #     plt.close(fig)
 
 
+def be_fit(z, pars):
+    """Generalised Baugh & Efstathiou (1993, eqn 7) model for N(z)."""
+    (zc, alpha, beta, norm) = pars
+    return norm * z**alpha * np.exp(-(z/zc)**beta)
+
+
 def w_plot_pred(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7],
                 avgcounts=False, lf_pars=lf_file,
                 Nz_file=Nz_file, xi_pars=xi_file, w_prefix=w_prefix,
@@ -497,10 +573,6 @@ def w_plot_pred(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7],
     """Plot observed and predicted w(theta) in mag bins.
     Use observed N(z) if Nz_file specified, otherwise use LF prediction."""
 
-    def be_fit(z, zc, alpha, beta, norm):
-        """Generalised Baugh & Efstathiou (1993, eqn 7) model for N(z)."""
-        return norm * z**alpha * np.exp(-(z/zc)**beta)
-    
     kpoly, lf_dict, Mcen, zmean, lgphi = pickle.load(open(lf_pars, 'rb'))
     if Nz_file:
          # use observed N(z) rather than LF prediction
@@ -577,10 +649,6 @@ def Nz(zbins=np.linspace(0.0, 2.0, 41), lf_pars=lf_file,
        interp=1, outfile=Nz_file):
     """Plot observed and predicted N(z) histograms in mag slices."""
 
-    def be_fit(z, zc, alpha, beta, norm):
-        """Generalised Baugh & Efstathiou (1993, eqn 7) model for N(z)."""
-        return norm * z**alpha * np.exp(-(z/zc)**beta)
-    
     t = Table.read(infile)
     sel = t[band+'mag'] < magbins[-1]
     t = t[sel]
@@ -607,7 +675,7 @@ def Nz(zbins=np.linspace(0.0, 2.0, 41), lf_pars=lf_file,
         counts_dict.update({imag: (mlo, mhi, counts, popt)})
         plt.stairs(counts, edges, color=color, label=f"m = {mlo}, {mhi}]")
         # plt.plot(zp, spline(zp), color=color, ls='-')
-        plt.plot(zp, be_fit(zp, *popt), color=color, ls='-')
+        plt.plot(zp, be_fit(zp, popt), color=color, ls='-')
         selfn = util.SelectionFunction(
             cosmo, lf_pars=lf_pars, 
             mlo=mlo, mhi=mhi, solid_angle=solid_angle,
