@@ -3,7 +3,7 @@
 #bash job_init.sh
 # import required environment variables such as PYTHONPATH
 #$ -v PYTHONPATH=~/Documents/Research/python
-#$ -o /mnt/lustre/scratch/astro/loveday
+##$ -o /mnt/lustre/scratch/astro/loveday
 # Your job name
 ##$ -N $@
 # Run job through bash shell
@@ -21,7 +21,7 @@
 # specify the queue and number of slots
 #$ -q smp.q
 ##$ -pe openmp 16
-##$ -l m_mem_free=16G
+#$ -l m_mem_free=16G
 # catch kill and suspend signals
 #$ -notify
 cd /research/astro/gama/loveday/Data/flagship
