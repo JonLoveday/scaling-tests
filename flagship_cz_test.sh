@@ -21,7 +21,7 @@
 # specify the queue and number of slots
 #$ -q smp.q
 ##$ -pe openmp 16
-#$ -l m_mem_free=32G
+#$ -l m_mem_free=64G
 # catch kill and suspend signals
 #$ -notify
 cd /research/astro/gama/loveday/Data/flagship
