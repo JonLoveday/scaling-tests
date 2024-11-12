@@ -220,11 +220,13 @@ def be_fit(z, zc, alpha, beta, norm):
     """Generalised Baugh & Efstathiou (1993, eqn 7) model for N(z)."""
     return norm * z**alpha * np.exp(-(z/zc)**beta)
 
-def Nz(fit_range=[0.001, 1], p0=[0.05, 1.7], rmin=0.01, rmax=10, ylim=(-0.5, 1), weight=-1):
+def Nz(fit_range=[0.001, 1], p0=[0.05, 1.7], rmin=0.01, rmax=10, ylim=(-0.5, 1),
+       weight=-1, fitbin=0, zsamp=np.linspace(0, 2, 41)):
     """Cluster redshifts from angular clustering of galaxies in mag bins about
     reference sample in redshift bins.
-    w(theta) integral is weighted by theta^weight."""
-
+    w(theta) integral is weighted by theta^weight.
+    Set fitbin=1 to integrate binned w(teta) directly, else use power-law fit."""
+     
     nz = len(glob.glob('az*.fits'))
     nm = len(glob.glob('xz0m*.fits'))
     with fits.open('az0.fits') as hdul:
@@ -243,24 +245,26 @@ def Nz(fit_range=[0.001, 1], p0=[0.05, 1.7], rmin=0.01, rmax=10, ylim=(-0.5, 1),
         ax = axes[iz]
         corr.plot(ax=ax)
         popt, pcov = corr.fit_w(fit_range, p0, ax)
-        A = popt[0]
-        pwr = 2 + weight - popt[1]
         ax.text(0.0, 1.05, f"z=[{corr.meta['ZLO']:3.2f}, {corr.meta['ZHI']:3.2f}]",
                 transform=ax.transAxes)
         zmean[iz] = corr.meta['ZMEAN']
         d[iz] = cosmo.comoving_distance(zmean[iz]).value
         tmin, tmax = 180/math.pi*rmin/d[iz], 180/math.pi*rmax/d[iz]
-        w_rr_av[iz] = A/pwr*(tmax**pwr - tmin**pwr)
+        if fitbin:
+            w_rr_av[iz] = corr.integral(tmin, tmax, weight)
+        else:
+            w_rr_av[iz] = wcorr.power_law_integral(*popt, weight, tmin, tmax)
         print(f'{zmean[iz]:4.3f}, {d[iz]:4.3f}, {popt[0]:4.3f}, {popt[1]:4.3f}, {tmin:4.3e}, {tmax:4.3e}, {w_rr_av[iz]:4.3f}')
         ax.axvline(tmin, c='g')
         ax.axvline(tmax, c='g')
 
         # Fits to jackknife
         for ijack in range(njack):
-            popt, pcov = corr.fit_w(fit_range, p0, ax, ijack=ijack+1)
-            A = popt[0]
-            pwr = 2 + weight - popt[1]
-            w_rr_av_jack[ijack, iz] = A/pwr*(tmax**pwr - tmin**pwr)
+            if fitbin:
+                w_rr_av_jack[ijack, iz] = corr.integral(tmin, tmax, weight, ijack+1)
+            else:
+                popt, pcov = corr.fit_w(fit_range, p0, ax, ijack=ijack+1)
+                w_rr_av_jack[ijack, iz] = wcorr.power_law_integral(*popt, weight, tmin, tmax)
             
     plt.loglog()
     axes[nz//2].set_xlabel(r'$\theta$ / degrees')
@@ -282,8 +286,6 @@ def Nz(fit_range=[0.001, 1], p0=[0.05, 1.7], rmin=0.01, rmax=10, ylim=(-0.5, 1),
             ax = axes[im, iz]
             corr.plot(ax=ax)
             popt, pcov = corr.fit_w(fit_range, p0, ax)
-            A = popt[0]
-            pwr = 2 + weight - popt[1]
             mlo[im], mhi[im] = corr.meta['MLO'], corr.meta['MHI']
             if im == 0:
                 ax.text(0.1, 1.05, f"z=[{corr.meta['ZLO']:3.2f}, {corr.meta['ZHI']:3.2f}]",
@@ -292,17 +294,21 @@ def Nz(fit_range=[0.001, 1], p0=[0.05, 1.7], rmin=0.01, rmax=10, ylim=(-0.5, 1),
                 ax.text(1.05, 0.5, f"m=[{mlo[im]:3.1f}, {mhi[im]:3.1f}]",
                         transform=ax.transAxes)
             tmin, tmax = 180/math.pi*rmin/d[iz], 180/math.pi*rmax/d[iz]
-            w_rt_av[iz, im] = A/pwr*(tmax**pwr - tmin**pwr)
+            if fitbin:
+                w_rt_av[iz, im] = corr.integral(tmin, tmax, weight)
+            else:
+                w_rt_av[iz, im] = wcorr.power_law_integral(*popt, weight, tmin, tmax)
             print(f'{zmean[iz]:4.3f}, {d[iz]:4.3f}, {im}, {popt[0]:4.3f}, {popt[1]:4.3f}, {tmin:4.3e}, {tmax:4.3e}, {w_rt_av[iz, im]:4.3f}')
             ax.axvline(tmin, c='g')
             ax.axvline(tmax, c='g')
 
             # Fits to jackknife
             for ijack in range(njack):
-                popt, pcov = corr.fit_w(fit_range, p0, ax, ijack=ijack+1)
-                A = popt[0]
-                pwr = 2 + weight - popt[1]
-                w_rt_av_jack[ijack, iz, im] = A/pwr*(tmax**pwr - tmin**pwr)
+                if fitbin:
+                    w_rt_av_jack[ijack, iz, im] = corr.integral(tmin, tmax, weight, ijack+1)
+                else:   
+                    popt, pcov = corr.fit_w(fit_range, p0, ax, ijack=ijack+1)
+                    w_rt_av_jack[ijack, iz, im] = wcorr.power_law_integral(*popt, weight, tmin, tmax)
             print(np.array_str(w_rt_av_jack[:, iz, im], precision=3))
     plt.loglog()
     axes[nm-1, nz//2].set_xlabel(r'$\theta$ / degrees')
@@ -331,8 +337,8 @@ def Nz(fit_range=[0.001, 1], p0=[0.05, 1.7], rmin=0.01, rmax=10, ylim=(-0.5, 1),
         try:
             popt, pcov = scipy.optimize.curve_fit(
                 be_fit, zmean[sel],  pmz[sel, im], sigma=pmz_err[sel, im],
-                p0=(0.5, 2.0, 1.5, 1), ftol=1e-3, xtol=1e-3)
-            ax.plot(zmean, be_fit(zmean, *popt), ls='-')
+                p0=(0.5, 2.0, 1.5, 1), bounds=(0, np.inf), ftol=1e-3, xtol=1e-3)
+            ax.plot(zsamp, be_fit(zsamp, *popt), ls='-')
             be_pars[:, im] = popt
             print(popt)
         except RuntimeError:
@@ -345,7 +351,8 @@ def Nz(fit_range=[0.001, 1], p0=[0.05, 1.7], rmin=0.01, rmax=10, ylim=(-0.5, 1),
     plt.ylim(ylim)
     plt.show()
 
-    pickle.dump((zmean, pmz, pmz_err, mlo, mhi, be_pars), open('Nz.pkl', 'wb'))
+    pickle.dump((zmean, pmz, pmz_err, mlo, mhi, be_pars, rmin, rmax, weight, fitbin),
+                open('Nz.pkl', 'wb'))
 
 
 def Nz_average(indirs, magbins=np.linspace(16, 22, 7),

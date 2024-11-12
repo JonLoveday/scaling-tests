@@ -345,19 +345,43 @@ class Corr1d(object):
                         color=color)
         return popt, pcov
 
-    def interp(self, r, jack=0, log=False):
+    def interp(self, r, ijack=0, log=False):
         """Returns interpolated value and error (zero for r > r_max).
         Interpolates in log-log space if log=True."""
         if log:
             return np.expm1(np.interp(np.log(r), np.log(self.sep),
-                                      np.log1p(self.est[:, jack]), right=0)), \
+                                      np.log1p(self.est[ijack, :]), right=0)), \
                    np.expm1(np.interp(np.log(r), np.log(self.sep),
-                                      np.log1p(self.cov.sig)))
+                                      np.log1p(self.err)))
         else:
-            return np.interp(r, self.sep, self.est[:, jack], right=0), \
-                   np.interp(r, self.sep, self.cov.sig)
+            return np.interp(r, self.sep, self.est[ijack, :], right=0), \
+                   np.interp(r, self.sep, self.err)
 
+    def integral(self, tmin, tmax, weight=-1, ijack=0):
+        """Integrate binned corr fn over [tmin, tmax], weighted by theta^weight."""
 
+        # Find first and last bins contained within [tmin, tmax]
+        if (tmin < self.sep[0]) or (tmax > self.sep[-1]):
+            print('Warning: extrapolating beyond measured w(theta) bins')
+        ilo = 0
+        ihi = len(self.sep)
+        for i in range(ihi):
+            if self.sep[i] <= tmin and self.sep[i+1] > tmin:
+                ilo = i+1
+            if self.sep[i] <= tmax and self.sep[i+1] > tmax:
+                ihi = i
+
+        # Interpolate to find w(tmin), and w(tmax)
+        ymin, _ = self.interp(tmin, ijack=ijack, log=True)
+        ymax, _ = self.interp(tmax, ijack=ijack, log=True)
+
+        x = np.hstack((tmin, self.sep[ilo:ihi+1], tmax))
+        y = np.hstack((ymin, self.est[ijack, ilo:ihi+1], ymax))
+        # print(x, y)
+        sum = scipy.integrate.simpson(y*x**weight, x=x)
+        norm = scipy.integrate.simpson(x**weight, x=x)
+        return sum/norm
+    
 class Cov(object):
     """Covariance matrix and eigenvalue decomposition."""
 
@@ -936,6 +960,45 @@ def tcplot(infile, fit_range=(0.0001, 1)):
     for ijack in range(corr.njack):
         popt, pcov = corr.fit_w(fit_range, ax=ax, ijack=ijack+1)
         print(popt, pcov)
+    plt.loglog()
+    # plt.legend()
+    plt.xlabel(r'$\theta$ [degrees]')
+    plt.ylabel(r'w($\theta$)')
+    plt.show()
+
+
+def power_law_integral(A, gamma, weight, tmin, tmax):
+    """Integral of power law weighted by theta^weight over [tmin, tmax]."""
+    pwr = 2 + weight - gamma
+    num = A/pwr*(tmax**pwr - tmin**pwr)
+    if weight == -1:
+        return num/(math.log(tmax) - math.log(tmin))
+    else:
+        w1 = weight + 1
+        return num/w1/(tmax**w1 - tmin**w1)
+
+
+def xi_power_law_integral(r0, gamma, weight, rmin, rmax):
+    """Integral of xi(r) power law weighted by r^weight over [rmin, rmax]."""
+    pwr = 1 + weight - gamma
+    num = r0**gamma/pwr*(rmax**pwr - rmin**pwr)
+    if weight == -1:
+        return num/(math.log(rmax) - math.log(rmin))
+    else:
+        w1 = weight + 1
+        return num/w1/(rmax**w1 - rmin**w1)
+
+
+def int_test(infile, fit_range=(0.0001, 1), tmin=0.01, tmax=0.1, weight=-1):
+    """Compare power-law and binned integrals."""
+
+    corr = Corr1d(infile=infile)
+    fig, ax = plt.subplots()
+    corr.plot(ax=ax)
+    popt, pcov = corr.fit_w(fit_range, ax=ax)
+    pl_int = power_law_integral(*popt, weight, tmin, tmax)
+    bin_int = corr.integral(tmin, tmax, weight)
+    print(f'pl_int {pl_int}, bin_int {bin_int}')
     plt.loglog()
     # plt.legend()
     plt.xlabel(r'$\theta$ [degrees]')

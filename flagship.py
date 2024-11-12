@@ -365,6 +365,121 @@ def xir_app_mag(mask_file='mask.ply', limits=(180, 200, 0, 20),
             hdul.flush()
 
 
+def xir_app_mag_z(mask_file='mask.ply', zbins=np.linspace(0, 2, 11), 
+                  limits=(180, 200, 0, 20), nmin=1000,
+                  ranfac=1, npatch=9, rmin=0.1, rmax=100, nbins=16,
+                  out_dir=f'xir_app_mag_z_{band}'):
+    """Real-space pair counts in apparent magnitude and redshift bins using treecorr."""
+
+    # Create out_dir if it doesn't already exist
+    Path(out_dir).mkdir(parents=True, exist_ok=True)
+
+    nm = len(magbins) - 1
+    nz = len(zbins) - 1
+  
+    t = Table.read(infile)
+    sel = ((t[band+'mag'] < magbins[-1]) * (zbins[0] <= t['true_redshift_gal']) *
+           (t['true_redshift_gal'] < zbins[-1]))
+    t = t[sel]
+    ra, dec, mag = t['ra_gal'], t['dec_gal'], t[band+'mag']
+    redshift = t['true_redshift_gal']
+    r = cosmo.dc(redshift)
+    mask = pymangle.Mangle(mask_file)
+
+    for iz in range(nz):
+        zlo, zhi = zbins[iz], zbins[iz+1]
+        sel = (zlo <= redshift) * (redshift < zhi)
+        mmean = np.mean(mag[sel])
+        Mmean = np.mean(t[band+'abs'][sel])
+        zmean = np.mean(redshift[sel])
+        ngal = len(ra[sel])
+        nran = int(ranfac*ngal)
+        print(f'z bin {iz} ngal = {ngal}, nran = {nran}')
+        rar, decr = mask.genrand_range(nran, *limits)
+        rr = rng.choice(r[sel], nran, replace=True)
+        rancat = treecorr.Catalog(
+            ra=rar.astype('float64'), dec=decr.astype('float64'), r=rr,
+            ra_units='deg', dec_units='deg', npatch=npatch)
+        galcat = treecorr.Catalog(
+            ra=ra[sel], dec=dec[sel], r=r[sel],
+            ra_units='deg', dec_units='deg',
+            patch_centers=rancat.patch_centers)
+
+        dd = treecorr.NNCorrelation(
+            min_sep=rmin, max_sep=rmax, nbins=nbins,
+            var_method='jackknife')
+        dd.process(galcat)
+        dr = treecorr.NNCorrelation(
+            min_sep=rmin, max_sep=rmax, nbins=nbins)
+        dr.process(galcat, rancat)
+        rr = treecorr.NNCorrelation(
+            min_sep=rmin, max_sep=rmax, nbins=nbins)
+        rr.process(rancat)
+        dd.calculateXi(rr=rr, dr=dr)
+        xi_jack, w = dd.build_cov_design_matrix('jackknife')
+        outfile = f'{out_dir}/xir_z{iz}.fits'
+        dd.write(outfile, rr=rr, dr=dr)
+        with fits.open(outfile, mode='update') as hdul:
+            hdr = hdul[1].header
+            hdr['zlo'] = zlo
+            hdr['zhi'] = zhi
+            hdr['M_app_mean'] = mmean
+            hdr['M_abs_mean'] = Mmean
+            hdr['zmean'] = zmean
+            hdr['Ngal'] = galcat.nobj
+            hdr['Nran'] = rancat.nobj
+            hdul.append(fits.PrimaryHDU(xi_jack))
+            hdul.flush()
+
+        for im in range(nm):
+            mlo, mhi = magbins[im], magbins[im+1]
+            sel = (zlo <= redshift) * (redshift < zhi) * (mlo <= mag) * (mag < mhi)
+            mmean = np.mean(mag[sel])
+            Mmean = np.mean(t[band+'abs'][sel])
+            zmean = np.mean(redshift[sel])
+            ngal = len(ra[sel])
+            nran = int(ranfac*ngal)
+            print(f'z bin {iz}, mag bin {im} ngal = {ngal}, nran = {nran}')
+            if ngal > nmin:
+                rar, decr = mask.genrand_range(nran, *limits)
+                rr = rng.choice(r[sel], nran, replace=True)
+                rancat = treecorr.Catalog(
+                    ra=rar.astype('float64'), dec=decr.astype('float64'), r=rr,
+                    ra_units='deg', dec_units='deg', npatch=npatch)
+                galcat = treecorr.Catalog(
+                    ra=ra[sel], dec=dec[sel], r=r[sel],
+                    ra_units='deg', dec_units='deg',
+                    patch_centers=rancat.patch_centers)
+
+                dd = treecorr.NNCorrelation(
+                    min_sep=rmin, max_sep=rmax, nbins=nbins,
+                    var_method='jackknife')
+                dd.process(galcat)
+                dr = treecorr.NNCorrelation(
+                    min_sep=rmin, max_sep=rmax, nbins=nbins)
+                dr.process(galcat, rancat)
+                rr = treecorr.NNCorrelation(
+                    min_sep=rmin, max_sep=rmax, nbins=nbins)
+                rr.process(rancat)
+                dd.calculateXi(rr=rr, dr=dr)
+                xi_jack, w = dd.build_cov_design_matrix('jackknife')
+                outfile = f'{out_dir}/xir_iz{iz}_im{im}.fits'
+                dd.write(outfile, rr=rr, dr=dr)
+                with fits.open(outfile, mode='update') as hdul:
+                    hdr = hdul[1].header
+                    hdr['zlo'] = zlo
+                    hdr['zhi'] = zhi
+                    hdr['mlo'] = mlo
+                    hdr['mhi'] = mhi
+                    hdr['M_app_mean'] = mmean
+                    hdr['M_abs_mean'] = Mmean
+                    hdr['zmean'] = zmean
+                    hdr['Ngal'] = galcat.nobj
+                    hdr['Nran'] = rancat.nobj
+                    hdul.append(fits.PrimaryHDU(xi_jack))
+                    hdul.flush()
+
+
 def cz_test(phot_gal=infile, spec_gal='spec_gal.fits',
             phot_ran='phot_ran.fits', spec_ran='spec_ran.fits',
             mask_file='mask.ply', ra_col='ra_gal', dec_col='dec_gal', 
@@ -408,17 +523,18 @@ def cz_test(phot_gal=infile, spec_gal='spec_gal.fits',
             exclude_psf=False, identify_overlap=False)
 
 
-def Nz_comp(infile=infile, Nz_file='cz_test/Nz.pkl', z_col='true_redshift_gal', zbins=np.linspace(0, 2, 41)):
+def Nz_comp(infile=infile, Nz_file='cz_test/Nz.pkl', z_col='true_redshift_gal',
+            zbins=np.linspace(0, 2, 41)):
     """Compare flagship N(z) in mag bins with cluster_z prediction."""
 
-    (zmean, pmz, pmz_err, mlo, mhi, be_pars) = pickle.load(open(Nz_file, 'rb'))
+    (zmean, pmz, pmz_err, mlo, mhi, be_pars, rmin, rmax, weight, fitbin) = pickle.load(open(Nz_file, 'rb'))
     nmag = len(mlo)
     t = Table.read(infile)
     redshift = t[z_col]
     mag = t['zmag']
 
-    fig, axes = plt.subplots(1, nmag, sharex=True, sharey=True)
-    fig.set_size_inches(8, 4)
+    fig, axes = plt.subplots(nmag, 1, sharex=True, sharey=False)
+    fig.set_size_inches(5, 7)
     fig.subplots_adjust(hspace=0, wspace=0)
 
     for imag in range(nmag):
@@ -427,12 +543,15 @@ def Nz_comp(infile=infile, Nz_file='cz_test/Nz.pkl', z_col='true_redshift_gal', 
         ax.hist(redshift[sel], bins=zbins)
         be_int, err = scipy.integrate.quad(be_fit, zbins[0], zbins[-1], args=be_pars[:, imag])
         norm = (zbins[1]-zbins[0])*len(redshift[sel])/be_int
-        # pdb.pm()
-        ax.plot(zmean, norm*be_fit(zmean, be_pars[:, imag]))
-        ax.text(0.1, 1.05, f"m=[{mlo[imag]}, {mhi[imag]}]",
+        # pdb.set_trace()
+        ax.plot(zbins, norm*be_fit(zbins, be_pars[:, imag]))
+        ax.text(0.7, 0.8, f"m=[{mlo[imag]}, {mhi[imag]}]",
                 transform=ax.transAxes)
-    axes[nmag//2].set_xlabel(r'Redshift')
-    axes[0].set_ylabel(r'$N(z)$')
+        print(be_pars[:, imag])
+    axes[nmag-1].set_xlabel(r'Redshift')
+    axes[nmag//2].set_ylabel(r'$N(z)$')
+    axes[0].text(0.1, 1.1, f'rmin {rmin}, rmax {rmax}, weight {weight}, fitbin {fitbin}',
+                transform=axes[0].transAxes)
     plt.show()
 
 
@@ -1628,6 +1747,92 @@ def xir_mag_plot(nm=6, fit_range=[0.1, 20], p0=[5, 1.7],
     axes[1].set_ylabel(r'$\gamma$')
     axes[1].errorbar(mmean, gamma, gamma_err)
     axes[1].set_xlabel(r'$m_z$')
+    plt.show()
+
+
+def xir_mag_z_plot(nz=10, nm=6, fit_range=[1, 50], p0=[5, 1.7], xiscale=0,
+                   rmin=1, rmax=50, weight=0):
+    """xi(r) from pair counts in redshift and redshift-mag bins from treecorr."""
+
+    prefix = 'xir_app_mag_z_z/'
+    zmean, xi_int = np.zeros(nz), np.zeros(nz)
+    fig, axes = plt.subplots(2, 1)
+    fig.set_size_inches(8, 6)
+    ax = axes[0]
+    if xiscale:
+        ax.set_ylabel(r'$r^2 \xi(r)$')
+    else:
+        ax.set_ylabel(r'$\xi(r)$')
+    ax.set_xlabel(r'$r$ [Mpc/h]')
+    for iz in range(nz):
+        color = next(ax._get_lines.prop_cycler)['color']
+        infile = f'{prefix}xir_z{iz}.fits'
+        corr = wcorr.Corr1d(infile)
+        zlo, zhi, zmean[iz] = corr.meta['ZLO'], corr.meta['ZHI'], corr.meta['ZMEAN']
+        if xiscale:
+            popt, pcov = corr.fit_xi(fit_range, p0, ax, color,
+                                    plot_scale=corr.sep**2)
+            ax.errorbar(corr.sep, corr.sep**2*corr.est_corr(),
+                        corr.sep**2*corr.err, color=color, fmt='o',
+                        label=rf"$z = [{zlo:3.1f}, {zhi:3.1f}]$")
+        else:
+            popt, pcov = corr.fit_xi(fit_range, p0, ax, color)
+            ax.errorbar(corr.sep, corr.est_corr(),
+                        corr.err, color=color, fmt='o',
+                        label=rf"$z = [{zlo:3.1f}, {zhi:3.1f}]$")
+            xi_int[iz] = wcorr.xi_power_law_integral(*popt, weight, rmin, rmax)
+        print(popt)
+    ax.loglog()
+    ax.legend()
+
+    ax = axes[1]
+    ax.plot(zmean, xi_int)
+    ax.set_xlabel('Redshift')
+    ax.set_ylabel(r'$b^2$')
+    plt.show()
+
+    fig, axes = plt.subplots(nm, 2, sharex='col')
+    fig.set_size_inches(6, 7)
+    fig.subplots_adjust(hspace=0)
+
+    if xiscale:
+        axes[nm//2, 0].set_ylabel(r'$r^2 \xi(r)$')
+    else:
+        axes[nm//2, 0].set_ylabel(r'$\xi(r)$')
+    axes[-1, 0].set_xlabel(r'$r$ [Mpc/h]')
+    axes[-1, 1].set_xlabel(r'$z$')
+    axes[nm//2, 1].set_ylabel(r'$b^2$')
+    for im in range(nm):
+        zmean = []
+        xi_int = []
+        for iz in range(nz):
+            ax = axes[im, 0]
+            color = next(ax._get_lines.prop_cycler)['color']
+            infile = f'{prefix}xir_iz{iz}_im{im}.fits'
+            try:
+                corr = wcorr.Corr1d(infile)
+                zlo, zhi = corr.meta['ZLO'], corr.meta['ZHI']
+                zmean.append(corr.meta['ZMEAN'])
+                if xiscale:
+                    popt, pcov = corr.fit_xi(fit_range, p0, ax, color,
+                                            plot_scale=corr.sep**2)
+                    ax.errorbar(corr.sep, corr.sep**2*corr.est_corr(),
+                                corr.sep**2*corr.err, color=color, fmt='o',
+                                label=rf"$z = [{zlo:3.1f}, {zhi:3.1f}]$")
+                else:
+                    popt, pcov = corr.fit_xi(fit_range, p0, ax, color)
+                    ax.errorbar(corr.sep, corr.est_corr(),
+                                corr.err, color=color, fmt='o',
+                                label=rf"$z = [{zlo:3.1f}, {zhi:3.1f}]$")
+                    xi_int.append(wcorr.xi_power_law_integral(*popt, weight, rmin, rmax))
+                print(popt)
+            except FileNotFoundError:
+                pass
+        ax.loglog()
+        # ax.legend()
+
+        ax = axes[im, 1]
+        ax.plot(zmean, xi_int)
     plt.show()
 
 

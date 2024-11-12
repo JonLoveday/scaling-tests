@@ -19,6 +19,7 @@ from astropy import units as u
 #import KCorrect as KC
 import pdb
 import matplotlib as mpl
+from numpy.random import default_rng
 import pylab as plt
 # from mpl_toolkits.axes_grid import AxesGrid
 # from mpl_toolkits.axes_grid.inset_locator import inset_axes
@@ -41,6 +42,7 @@ import scipy.stats
 import time
 import util
 
+rng = default_rng()
 # Ticks point inwards on all axes
 mpl.rcParams['xtick.direction'] = 'in'
 mpl.rcParams['ytick.direction'] = 'in'
@@ -2658,3 +2660,49 @@ def testfn():
     except:
         print('a not defined')
     a = 42
+
+def cic_hist(N=10, bins=np.linspace(0, 1, 11)):
+    """Cloud-in-cell histogram, where weight of a given point is allocated
+    proprtionately to two closest bins.
+    See https://ned.ipac.caltech.edu/level5/Sept19/Springel/paper.pdf"""
+
+    x = rng.random(N)
+    bin_width = np.diff(bins)[0]
+    bin_centers = bins[:-1] + bin_width
+    nbins = len(bin_centers)
+    fig, axes = plt.subplots(3, 1, sharex=True, num=1)
+    fig.set_size_inches(5, 6)
+    fig.subplots_adjust(hspace=0, wspace=0)
+
+    # Standard histogram plus individual points if < 1000
+    axes[0].hist(x, bins)
+    if N < 1000:
+        axes[0].plot(x, axes[0].get_ylim()[1]*np.ones(N), '|', c='r')
+
+    # With loops, as written by Adrien
+    weights = np.zeros((nbins, N))
+    for i in range(nbins):
+        for j in range(N):
+            if np.abs(x[j] - bin_centers[i]) < bin_width:
+                weights[i, j] = (1 - (np.abs(x[j] - bin_centers[i]) / bin_width))
+                if i==0 and x[j]<min(bin_centers) or i==nbins and x[j]>max(bin_centers):
+                    weights[i, j] = 1
+            else:
+                weights[i, j] = 0
+    hist = np.sum(weights, axis=1)
+    axes[1].stairs(hist, bins)
+
+    # Without loops
+    hist = np.zeros(nbins)
+    pf = x/bin_width - 0.5
+    i = np.floor(pf).astype(int)
+    ok = (i >= 0) * (i < nbins-1)
+    pstar = pf[ok] - i[ok]
+    np.add.at(hist, i[ok], 1-pstar)
+    np.add.at(hist, i[ok]+1, pstar)
+    first = (i < 0)
+    hist[0] += len(i[first])
+    last = (i >= nbins-1)
+    hist[nbins-1] += len(i[last])
+    axes[2].stairs(hist, bins)
+    plt.show()
