@@ -1,4 +1,4 @@
-# Clustering support utilities, using corrfunc for pair counts
+# Clustering support utilities, using treecorr for pair counts
 
 import corner
 import emcee
@@ -856,45 +856,63 @@ def Nofz_plot(N0=1, z0=0.5, alpha=1, beta=1, z=np.linspace(0.0, 1.0, 51)):
 
 def w_hsc_ud():
     """w(theta) for HSC_UD in mag bins."""
-    w_hsc(gal_file='gal_mask_ud.fits', ran_file='ran_mask_ud.fits',
-          out_file='w_hsc_ud.pkl', magbins = np.linspace(20, 26, 7),
+    w_hsc(galfile='gal_mask_ud.fits', ranfile='ran_mask_ud.fits',
+          out_file='w_hsc_ud.pkl', magbins=np.linspace(20, 26, 7),
           nra=4, ndec=4, tmin=0.01, tmax=1, nbins=20)
 
 
-def w_hsc(gal_file='gal_mask.fits', ran_file='ran_mask.fits',
-          out_file='w_hsc_wide.pkl', magbins = np.linspace(20, 25, 6),
-          nra=4, ndec=4, tmin=0.01, tmax=1, nbins=20, nthreads=2, ranfrac=0.1):
+def w_hsc(galfile='gal.fits', ranfile='ran.fits',
+          out_dir='.', magbins=np.linspace(20, 26, 7),
+          npatch=9, tmin=0.001, tmax=5, nbins=20):
     """w(theta) for HSC in mag bins."""
     bins = np.logspace(np.log10(tmin), np.log10(tmax), nbins + 1)
     tcen = 10**(0.5*np.diff(np.log10(bins)) + np.log10(bins[:-1]))
     lbl = [f'{magbins[i]} <= mag < {magbins[i+1]}' for i in range(len(magbins)-1)]
-    t = Table.read(gal_file)
+
+    # Create out_dir if it doesn't already exist
+    Path(out_dir).mkdir(parents=True, exist_ok=True)
+
+    # process the randoms
+    t = Table.read(ranfile)
+    print(len(t), 'randoms read')
+    rcat = treecorr.Catalog(ra=t['ra'], dec=t['dec'],
+                            ra_units='deg', dec_units='deg',
+                            npatch=npatch)
+    rr = treecorr.NNCorrelation(min_sep=tmin, max_sep=tmax, nbins=nbins,
+                                sep_units='degrees')
+    rr.process(rcat)
+
+    # Now the galaxies
+    t = Table.read(galfile)
     ra, dec, mag = t['ra'], t['dec'], t['imag']
-    sub = np.zeros(len(ra), dtype='int8')
+    print(len(t), 'galaxies read')
+
+    print('imag  ngal')
     for imag in range(len(magbins) - 1):
-        sel = (magbins[imag] <= mag) * (mag < magbins[imag+1])
-        sub[sel] = imag
-    galcat = Cat(ra, dec, sub=sub, nthreads=nthreads)
-
-    t = Table.read(ran_file)
-    if ranfrac < 1:
-        nran = int(ranfrac*len(t))
-        sel = rng.choice(len(t), nran, replace=False)
-        ra, dec = t['ra'][sel], t['dec'][sel]
-    else:
-        ra, dec = t['ra'], t['dec']
-    rancat = Cat(ra, dec)
-
-    limits = (np.min(ra), np.max(ra), np.min(dec), np.max(dec))
-    galcat.assign_jk(limits, nra, ndec)
-    rancat.assign_jk(limits, nra, ndec)
-
-    print(galcat.nobj, rancat.nobj, 'galaxies and randoms')
-
-    w, w_err, wj, DD_counts, DR_counts, RR_counts = w_jack_sub(galcat, rancat, bins)
-    pickle.dump((tcen, w, w_err, wj, DD_counts, DR_counts, RR_counts, lbl), open(out_file, 'wb'))
-
-
+        mlo, mhi = magbins[imag], magbins[imag+1]
+        sel = (mlo <= mag) * (mag < mhi)
+        print(imag, len(ra[sel]))
+        gcat = treecorr.Catalog(ra=ra[sel], dec=dec[sel],
+                                ra_units='deg', dec_units='deg',
+                                patch_centers=rcat.patch_centers)
+        dr = treecorr.NNCorrelation(min_sep=tmin, max_sep=tmax, nbins=nbins,
+                                    sep_units='degrees')
+        dr.process(gcat, rcat)
+        dd = treecorr.NNCorrelation(min_sep=tmin, max_sep=tmax, nbins=nbins,
+                                    sep_units='degrees', var_method='jackknife')
+        dd.process(gcat)
+        dd.calculateXi(rr=rr, dr=dr)
+        xi_jack, w = dd.build_cov_design_matrix('jackknife')
+        outfile = f'{out_dir}/w_m{imag}.fits'
+        dd.write(outfile, rr=rr, dr=dr)
+        with fits.open(outfile, mode='update') as hdul:
+            hdr = hdul[1].header
+            hdr['mlo'] = mlo
+            hdr['mhi'] = mhi
+            hdr['Ngal'] = gcat.nobj
+            hdr['Nran'] = rcat.nobj
+            hdul.append(fits.PrimaryHDU(xi_jack))
+            hdul.flush()
 
 
 def ic_pl(A, gamma, tmax, tcen, RR_counts):
@@ -935,21 +953,8 @@ def radec_plot(infiles, s=1):
     plt.show()
 
 
-def wplot(infiles):
-    """Plot w(theta) results."""
-    plt.clf()
-    for infile in infiles:
-        (tcen, w, w_err) = pickle.load(open(infile, 'rb'))       
-        plt.errorbar(tcen, w, w_err, label=infile)
-    plt.loglog()
-    plt.legend()
-    plt.xlabel(r'$\theta$ [degrees]')
-    plt.ylabel(r'w($\theta$)')
-    plt.show()
-
-
-def tcplot(infile, fit_range=(0.0001, 1)):
-    """Plot w(theta) results from treecorr."""
+def w_plot(infile, fit_range=(0.0001, 1)):
+    """Plot w(theta) results"""
 
     corr = Corr1d(infile=infile)
     fig, ax = plt.subplots()
@@ -964,6 +969,29 @@ def tcplot(infile, fit_range=(0.0001, 1)):
     # plt.legend()
     plt.xlabel(r'$\theta$ [degrees]')
     plt.ylabel(r'w($\theta$)')
+    plt.show()
+
+
+def w_plot_mag(nmag=6, fit_range=[0.001, 1], p0=[0.05, 1.7]):
+    """w(theta) from angular pair counts in mag bins."""
+
+    plt.clf()
+    ax = plt.subplot(111)
+    corr_slices = []
+    for imag in range(nmag):
+        infile = f'w_m{imag}.fits'
+        corr = Corr1d(infile)
+        mlo, mhi = corr.meta['MLO'], corr.meta['MHI']
+        m = 0.5*(mlo + mhi)
+        color = next(ax._get_lines.prop_cycler)['color']
+        corr.plot(ax, color=color, label=f"m = [{mlo}, {mhi}]")
+        if fit_range:
+            popt, pcov = corr.fit_w(fit_range, p0, ax, color)
+            print(popt, pcov)
+    plt.loglog()
+    plt.legend()
+    plt.xlabel(r'$\theta$ / degrees')
+    plt.ylabel(r'$w(\theta)$')
     plt.show()
 
 

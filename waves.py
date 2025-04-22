@@ -23,7 +23,7 @@ import pymangle
 
 import calc_kcor
 import limber
-import util
+import st_util
 import wcorr
 
 ln10 = math.log(10)
@@ -32,7 +32,7 @@ rng = default_rng()
 # Flagship2 cosomology, converting to h=1 units
 h = 1
 Om0 = 0.319
-cosmo = util.CosmoLookup(h, Om0)
+cosmo = st_util.CosmoLookup(h, Om0)
 
 north_limits = [157.25, 225.0, -3.95, 3.95]
 south_limits = [330, 51.6, -35.6, -27]
@@ -416,17 +416,17 @@ def w_plot(nmag=6, fit_range=[0.01, 5], p0=[0.05, 1.7],
         corr = wcorr.Corr1d(infile)
         mlo, mhi = corr.meta['MLO'], corr.meta['MHI']
         m = 0.5*(mlo + mhi)
-        color = next(ax._get_lines.prop_cycler)['color']
-        corr.plot(ax, color=color, label=f"m = [{mlo}, {mhi}]")
+        # color = next(ax._get_lines.prop_cycler)['color']
+        corr.plot(ax, label=f"m = [{mlo}, {mhi}]")
         if fit_range:
-            popt, pcov = corr.fit_w(fit_range, p0, ax, color)
+            popt, pcov = corr.fit_w(fit_range, p0, ax, color=plt.gca().lines[-1].get_color())
             print(popt, pcov)
         if Nz_file:
             if (mlo == Nz_mlo[imag] == xi_mlo[imag]) and (mhi == Nz_mhi[imag] == xi_mhi[imag]):
                 wlim = limber.w_lum_Nz_fit(cosmo, corr.sep, m, r0[imag],
                                            gamma[imag], be_pars[:, imag], # was imag-1
                                            plotint=0, pdf=None, plot_den=0)
-                plt.plot(corr.sep, wlim, '--', color=color)
+                plt.plot(corr.sep, wlim, '--', color=plt.gca().lines[-1].get_color())
                 print(imag, r0[imag], gamma[imag], be_pars[:, imag])
             else:
                 print('mismatched magnitude limits', mlo, Nz_mlo[imag], mhi, Nz_mhi[imag])
@@ -487,7 +487,7 @@ def Nz(infile='WAVES-N_0p2_Z22_GalsAmbig_CompletePhotoZ.fits',
         plt.stairs(counts, edges, color=color, label=f"m = {mlo}, {mhi}]")
         # plt.plot(zp, spline(zp), color=color, ls='-')
         plt.plot(zp, be_fit(zp, *popt), color=color, ls='-')
-        selfn = util.SelectionFunction(
+        selfn = st_util.SelectionFunction(
             cosmo, lf_pars=lf_pars, 
             mlo=mlo, mhi=mhi, solid_angle=solid_angle,
             dz=zbins[1]-zbins[0], interp=interp)

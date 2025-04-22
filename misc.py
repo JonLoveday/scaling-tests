@@ -2706,3 +2706,24 @@ def cic_hist(N=10, bins=np.linspace(0, 1, 11)):
     hist[nbins-1] += len(i[last])
     axes[2].stairs(hist, bins)
     plt.show()
+
+
+def sum_times(infile):
+    """Sum durations in mm:ss format in 2nd column of infile."""
+    with open(infile, newline='') as csvfile:
+        csvreader = csv.reader(csvfile)
+        minsum = 0
+        secsum = 0
+        sum = 0
+        for row in csvreader:
+            dur = row[1]
+            secs = int(dur[-2:])
+            mins = int(dur[:-3])
+            minsum += mins
+            secsum += secs
+            sum += 32.47 + 21.17*(mins+1)
+            print(mins)
+    print(minsum, 'm', secsum, 's', minsum + secsum/60.0, 'total mins')
+    india = 2*32.47 + 45.3*(6+11)
+    usa = 32.47 + 20.47*38
+    print('total UK cost', sum*0.01, 'India', india*0.01, 'US', usa*0.01)
