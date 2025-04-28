@@ -399,13 +399,15 @@ def w_plot_class(nmag=1, njack=10, fit_range=[0.01, 5], p0=[0.05, 1.7],
 
 def w_plot(nmag=6, fit_range=[0.01, 5], p0=[0.05, 1.7],
            prefix='wmag_N/',
-           Nz_file='/Users/loveday/Data/Legacy/corr/cmass_ngc_Legacy_9/Nz.pkl',
+        #    Nz_file='/Users/loveday/Data/Legacy/corr/cmass_ngc_Legacy_9/Nz.pkl',
+           Nz_file='/Users/loveday/Data/flagship/Nz_z.pkl',
            xi_pars='/Users/loveday/Data/flagship/xi_z_mag.pkl'):
     """w(theta) from angular pair counts in mag bins.
     Use observed N(z) if Nz_file specified, otherwise use LF prediction."""
 
     if Nz_file:
-        (zmean, pmz, pmz_err, Nz_mlo, Nz_mhi, be_pars) = pickle.load(open(Nz_file, 'rb'))
+        # (zmean, pmz, pmz_err, Nz_mlo, Nz_mhi, be_pars) = pickle.load(open(Nz_file, 'rb'))
+        Nz_dict = pickle.load(open(Nz_file, 'rb'))
         (xi_mlo, xi_mhi, r0, gamma) = pickle.load(open(xi_pars, 'rb'))
 
     plt.clf()
@@ -416,20 +418,22 @@ def w_plot(nmag=6, fit_range=[0.01, 5], p0=[0.05, 1.7],
         corr = wcorr.Corr1d(infile)
         mlo, mhi = corr.meta['MLO'], corr.meta['MHI']
         m = 0.5*(mlo + mhi)
-        # color = next(ax._get_lines.prop_cycler)['color']
         corr.plot(ax, label=f"m = [{mlo}, {mhi}]")
+        clr = plt.gca().lines[-1].get_color()  # save colour for fit and prediction
         if fit_range:
-            popt, pcov = corr.fit_w(fit_range, p0, ax, color=plt.gca().lines[-1].get_color())
+            popt, pcov = corr.fit_w(fit_range, p0, ax, color=clr)
             print(popt, pcov)
         if Nz_file:
-            if (mlo == Nz_mlo[imag] == xi_mlo[imag]) and (mhi == Nz_mhi[imag] == xi_mhi[imag]):
+            if ((mlo == Nz_dict['mbins'][imag] == xi_mlo[imag]) and 
+                (mhi == Nz_dict['mbins'][imag+1] == xi_mhi[imag])):
                 wlim = limber.w_lum_Nz_fit(cosmo, corr.sep, m, r0[imag],
-                                           gamma[imag], be_pars[:, imag], # was imag-1
+                                           gamma[imag], Nz_dict['be_pars'][imag, :], # was imag-1
                                            plotint=0, pdf=None, plot_den=0)
-                plt.plot(corr.sep, wlim, '--', color=plt.gca().lines[-1].get_color())
-                print(imag, r0[imag], gamma[imag], be_pars[:, imag])
+                plt.plot(corr.sep, wlim, '--', color=clr)
+                print(imag, r0[imag], gamma[imag], Nz_dict['be_pars'][imag, :])
             else:
-                print('mismatched magnitude limits', mlo, Nz_mlo[imag], mhi, Nz_mhi[imag])
+                print('mismatched mag limits', mlo, Nz_dict['mbins'][imag],
+                      mhi, Nz_dict['mbins'][imag+1])
     plt.loglog()
     plt.legend()
     plt.xlabel(r'$\theta$ / degrees')
@@ -471,7 +475,7 @@ def Nz(infile='WAVES-N_0p2_Z22_GalsAmbig_CompletePhotoZ.fits',
     zcen = zbins[:-1] + 0.5*np.diff(zbins)
     zmin, zmax = zbins[0], zbins[-1]
     zp = np.linspace(zmin, zmax, 500)
-    counts_dict = {'zbins': zbins, 'zcen': zcen}
+    Nz_dict = {'zbins': zbins, 'zcen': zcen}
     plt.clf()
     ax = plt.subplot(111)
     for imag in range(len(magbins) - 1):
@@ -483,7 +487,7 @@ def Nz(infile='WAVES-N_0p2_Z22_GalsAmbig_CompletePhotoZ.fits',
             be_fit, zcen, counts, p0=(0.5, 2.0, 1.5, 1e6), ftol=1e-3, xtol=1e-3)
         print(popt)
 
-        counts_dict.update({imag: (mlo, mhi, counts, popt)})
+        Nz_dict.update({imag: (mlo, mhi, counts, popt)})
         plt.stairs(counts, edges, color=color, label=f"m = {mlo}, {mhi}]")
         # plt.plot(zp, spline(zp), color=color, ls='-')
         plt.plot(zp, be_fit(zp, *popt), color=color, ls='-')
@@ -493,7 +497,7 @@ def Nz(infile='WAVES-N_0p2_Z22_GalsAmbig_CompletePhotoZ.fits',
             dz=zbins[1]-zbins[0], interp=interp)
         selfn.plot_Nz(ax, color=color, ls='--')
 
-    pickle.dump(counts_dict, open(outfile, 'wb'))
+    pickle.dump(Nz_dict, open(outfile, 'wb'))
     plt.legend()
     plt.xlabel('z')
     plt.ylabel('N(z)')
@@ -514,4 +518,172 @@ def zmag_comp():
     plt.scatter(t['Z_MODEL'], z_vista, s=0.1)
     plt.xlabel('SDSS z model mag')
     plt.ylabel('VISTA Z mag')
+    plt.show()
+
+# Routines for Shark mocks
+def shark_xir(infile='waves_wide_gals.parquet', mask_file='../../v1p2/mask_N.ply',
+              region='N', limits=north_limits, ranfac=1, npatch=9, rmin=0.1, rmax=100, nbins=16,
+              magbins=[16, 17, 18, 19, 20, 21, 21.2]):
+    """Real-space pair counts in apparent magnitude bins."""
+
+    # Create out_dir if it doesn't already exist
+    out_dir = f'xir_mag_{region}'
+    Path(out_dir).mkdir(parents=True, exist_ok=True)
+
+    nm = len(magbins) - 1
+    magcol = 'total_ap_dust_Z_VISTA'
+    mabscol = 'total_ab_dust_Z_VISTA'
+
+    t = Table.read(infile)
+    if region == 'N':
+        sel = t['dec'] > -10
+    if region == 'S':
+        sel = t['dec'] < -10
+    print(len(t[sel]), 'out of', len(t), 'galaxies selected')
+    t = t[sel]
+    ra, dec, mag, redshift = t['ra'], t['dec'], t[magcol], t['zcos']
+    r = cosmo.dc(redshift)
+    mask = pymangle.Mangle(mask_file)
+
+    for im in range(nm):
+        mlo, mhi = magbins[im], magbins[im+1]
+        sel = (mlo <= mag) * (mag < mhi)
+        mmean = np.mean(mag[sel])
+        Mmean = np.mean(t[mabscol][sel])
+        zmean = np.mean(redshift[sel])
+        ngal = len(ra[sel])
+        nran = int(ranfac*ngal)
+        rar, decr = mask.genrand_range(nran, *limits)
+        rr = rng.choice(r[sel], nran, replace=True)
+        rancat = treecorr.Catalog(
+            ra=rar.astype('float64'), dec=decr.astype('float64'), r=rr,
+            ra_units='deg', dec_units='deg', npatch=npatch)
+        galcat = treecorr.Catalog(
+            ra=ra[sel], dec=dec[sel], r=r[sel],
+            ra_units='deg', dec_units='deg',
+            patch_centers=rancat.patch_centers)
+
+        print(f'mag bin {im} ngal = {ngal}, nran = {nran}')
+        dd = treecorr.NNCorrelation(
+            min_sep=rmin, max_sep=rmax, nbins=nbins,
+            var_method='jackknife', cross_patch_weight='match')
+        dd.process(galcat)
+        dr = treecorr.NNCorrelation(
+            min_sep=rmin, max_sep=rmax, nbins=nbins, cross_patch_weight='match')
+        dr.process(galcat, rancat)
+        rr = treecorr.NNCorrelation(
+            min_sep=rmin, max_sep=rmax, nbins=nbins, cross_patch_weight='match')
+        rr.process(rancat)
+        dd.calculateXi(rr=rr, dr=dr)
+        xi_jack, w = dd.build_cov_design_matrix('jackknife')
+        outfile = f'{out_dir}/xir_im{im}.fits'
+        dd.write(outfile, rr=rr, dr=dr)
+        with fits.open(outfile, mode='update') as hdul:
+            hdr = hdul[1].header
+            hdr['Mlo'] = mlo
+            hdr['Mhi'] = mhi
+            hdr['M_app_mean'] = mmean
+            hdr['M_abs_mean'] = Mmean
+            hdr['zmean'] = zmean
+            hdr['Ngal'] = galcat.nobj
+            hdr['Nran'] = rancat.nobj
+            hdul.append(fits.PrimaryHDU(xi_jack))
+            hdul.flush()
+
+def xir_mag_plot(nm=6, fit_range=[0.1, 20], p0=[5, 1.7],
+                 xiscale=0, outfile='xi_z_mag.pkl'):
+    """xi(r) from pair counts in apparent magnitude bins from treecorr."""
+
+    prefix = 'xir_mag_N/'
+    mlo, mhi, mmean = np.zeros(nm), np.zeros(nm), np.zeros(nm)
+    r0, gamma = np.zeros(nm), np.zeros(nm)
+    r0_err, gamma_err = np.zeros(nm), np.zeros(nm)
+    plt.ioff()
+    plt.clf()
+    ax = plt.subplot(111)
+    
+    if xiscale:
+        ax.set_ylabel(r'$r^2 \xi(r)$')
+        ax.set_ylabel(r'$r^2 \xi(r)$')
+    else:
+        ax.set_ylabel(r'$\xi(r)$')
+        ax.set_ylabel(r'$\xi(r)$')
+    ax.set_xlabel(r'$r$ [Mpc/h]')
+    for im in range(nm):
+        infile = f'{prefix}xir_im{im}.fits'
+        corr = wcorr.Corr1d(infile)
+        mlo[im], mhi[im] = corr.meta['MLO'], corr.meta['MHI']
+        if xiscale:
+            popt, pcov = corr.fit_xi(fit_range, p0, ax,
+                                    plot_scale=corr.sep**2)
+            clr = plt.gca().lines[-1].get_color()
+            ax.errorbar(corr.sep, corr.sep**2*corr.est_corr(),
+                        corr.sep**2*corr.err, color=clr, fmt='o',
+                        label=rf"$m_{band} = [{mlo[im]:3.1f}, {mhi[im]:3.1f}]$")
+        else:
+            popt, pcov = corr.fit_xi(fit_range, p0, ax)
+            clr = plt.gca().lines[-1].get_color()
+            ax.errorbar(corr.sep, corr.est_corr(),
+                        corr.err, color=clr, fmt='o',
+                        label=rf"$m_z = [{mlo[im]:3.1f}, {mhi[im]:3.1f}], r_0={popt[0]:3.2f}, \gamma={popt[1]:3.2f}$")
+        mmean[im] = corr.meta['M_app_mean']
+        r0[im], gamma[im] = popt
+        r0_err[im], gamma_err[im] = pcov[0, 0]**0.5, pcov[1, 1]**0.5
+        print(popt)
+    pickle.dump((mlo, mhi, r0, gamma), open(outfile, 'wb'))
+    plt.loglog()
+    plt.legend()
+    plt.show()
+
+    fig, axes = plt.subplots(2, 1, sharex=True, sharey='row', num=2)
+    fig.set_size_inches(4, 8)
+    fig.subplots_adjust(hspace=0, wspace=0)
+    axes[0].set_ylabel(r'$r_0$')
+    axes[0].errorbar(mmean, r0, r0_err)
+    axes[1].set_ylabel(r'$\gamma$')
+    axes[1].errorbar(mmean, gamma, gamma_err)
+    axes[1].set_xlabel(r'$m_z$')
+    plt.show()
+
+
+def shark_xi_rp_pi(infile='waves_wide_gals.parquet', mask_file='../../v1p2/mask_N.ply',
+              region='N', limits=north_limits, ranfac=1, npatch=9, rmin=0.1, rmax=100, nbins=16):
+    """xi(rp, pi) calculated with treecorr."""
+
+    # Create out_dir if it doesn't already exist
+    out_dir = f'xi_rp_pi_{region}'
+    Path(out_dir).mkdir(parents=True, exist_ok=True)
+
+    t = Table.read(infile)
+    if region == 'N':
+        sel = t['dec'] > -10
+    if region == 'S':
+        sel = t['dec'] < -10
+    print(len(t[sel]), 'out of', len(t), 'galaxies selected')
+    t = t[sel]
+    ra, dec, redshift = t['ra'], t['dec'], t['zobs']
+    r = cosmo.dc(redshift)
+    mask = pymangle.Mangle(mask_file)
+
+    ngal = len(ra)
+    nran = int(ranfac*ngal)
+    rar, decr = mask.genrand_range(nran, *limits)
+    rr = rng.choice(r, nran, replace=True)
+    wcorr.xi_rp_pi(ra, dec, r, rar, decr, rr, npatch=9,
+                rp_min=0.01, rp_max=10, rp_bins=20, pi_bins=np.linspace(0, 40, 3),
+                out_dir=out_dir)
+
+
+def xi_rp_pi_plot(infiles=['xi_rp_pi_neg0.fits', 'xi_rp_pi_pos0.fits',
+                           'xi_rp_pi_neg1.fits', 'xi_rp_pi_pos1.fits']):
+    plt.clf()
+    ax = plt.subplot(111)
+    for infile in infiles:
+        corr = wcorr.Corr1d(infile)
+        ax.errorbar(corr.sep, corr.est_corr(),
+                    corr.err, fmt='o',
+                    label=infile)
+
+    ax.set_ylabel(r'$\xi(r_p)$')
+    ax.set_xlabel(r'$r_p$ [Mpc/h]')
     plt.show()

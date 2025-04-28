@@ -31,8 +31,8 @@ import treecorr
 
 import cluster_z
 import limber
-import util
-import wcorr
+import st_util
+import wcorr_corrfunc
 
 ln10 = math.log(10)
 rng = default_rng()
@@ -41,7 +41,7 @@ np.seterr(all='warn')
 # Flagship2 cosomology, converting to h=1 units
 h = 1
 Om0 = 0.319
-cosmo = util.CosmoLookup(h, Om0, zbins=np.linspace(0.0001, 2, 200))
+cosmo = st_util.CosmoLookup(h, Om0, zbins=np.linspace(0.0001, 2, 200))
 solid_angle = 400 * (math.pi/180)**2
 
 band = 'z'
@@ -123,12 +123,12 @@ def wcounts(mask_file='mask.ply',
     if plots:
         plt.xlabel(rf'$M_{band}$')
         plt.show()
-    galcat = wcorr.Cat(ra, dec, sub=sub)
+    galcat = wcorr_corrfunc.Cat(ra, dec, sub=sub)
     galcat.assign_jk(limits, nra, ndec)
 
     mask = pymangle.Mangle(mask_file)
     ra, dec = mask.genrand_range(nran, *limits)
-    rancat = wcorr.Cat(ra.astype('float64'), dec.astype('float64'))
+    rancat = wcorr_corrfunc.Cat(ra.astype('float64'), dec.astype('float64'))
     rancat.assign_jk(limits, nra, ndec)
 
     print(galcat.nobj, rancat.nobj, 'galaxies and randoms')
@@ -141,7 +141,7 @@ def wcounts(mask_file='mask.ply',
         plt.show()
         info = {'Jack': ijack, 'Nran': len(rcoords[0]), 'bins': bins, 'tcen': tcen}
         outfile = f'{out_pref}RR_J{ijack}.pkl'
-        pool.apply_async(wcorr.wcounts, args=(*rcoords, bins, info, outfile))
+        pool.apply_async(wcorr_corrfunc.wcounts, args=(*rcoords, bins, info, outfile))
         for imag in range(len(magbins) - 1):
             print(ijack, imag)
             mlo, mhi = magbins[imag], magbins[imag+1]
@@ -150,10 +150,10 @@ def wcounts(mask_file='mask.ply',
                     'Ngal': len(gcoords[0]), 'Nran': len(rcoords[0]),
                     'bins': bins, 'tcen': tcen}
             outfile = f'{out_pref}GG_J{ijack}_m{imag}.pkl'
-            pool.apply_async(wcorr.wcounts,
+            pool.apply_async(wcorr_corrfunc.wcounts,
                              args=(*gcoords, bins, info, outfile))
             outfile = f'{out_pref}GR_J{ijack}_m{imag}.pkl'
-            pool.apply_async(wcorr.wcounts,
+            pool.apply_async(wcorr_corrfunc.wcounts,
                              args=(*gcoords, bins, info,  outfile, *rcoords))
     pool.close()
     pool.join()
@@ -191,7 +191,7 @@ def xir_counts_corrfunc(mask_file='mask.ply',
                    (Mlo <= Mag) * (Mag < Mhi))
             Mmean = np.mean(Mag[sel])
             zmean = np.mean(redshift[sel])
-            galcat = wcorr.Cat(ra[sel], dec[sel], r=r[sel])
+            galcat = wcorr_corrfunc.Cat(ra[sel], dec[sel], r=r[sel])
             galcat.assign_jk(limits, nra, ndec)
             galcat.gen_cart()
             ngal = len(ra[sel])
@@ -200,7 +200,7 @@ def xir_counts_corrfunc(mask_file='mask.ply',
                 mask = pymangle.Mangle(mask_file)
                 rar, decr = mask.genrand_range(nran, *limits)
                 rr = rng.choice(r[sel], nran, replace=True)
-                rancat = wcorr.Cat(rar.astype('float64'), decr.astype('float64'), r=rr)
+                rancat = wcorr_corrfunc.Cat(rar.astype('float64'), decr.astype('float64'), r=rr)
                 rancat.assign_jk(limits, nra, ndec)
                 rancat.gen_cart()
 
@@ -216,16 +216,16 @@ def xir_counts_corrfunc(mask_file='mask.ply',
                     outgr = f'{out_dir}/GR_j{jack}_z{iz}_M{im}.pkl'
                     outrr = f'{out_dir}/RR_j{jack}_z{iz}_M{im}.pkl'
                     if multi:
-                        pool.apply_async(wcorr.xir_counts,
+                        pool.apply_async(wcorr_corrfunc.xir_counts,
                                          args=(x, y, z, rbins, info, outgg))
-                        pool.apply_async(wcorr.xir_counts,
+                        pool.apply_async(wcorr_corrfunc.xir_counts,
                                          args=(xr, yr, zr, rbins, info, outrr))
-                        pool.apply_async(wcorr.xir_counts,
+                        pool.apply_async(wcorr_corrfunc.xir_counts,
                                          args=(x, y, z, rbins, info, outgr, xr, yr, zr))
                     else:
-                        wcorr.xir_counts(x, y, z, rbins, info, outgg)
-                        wcorr.xir_counts(xr, yr, zr, rbins, info, outrr)
-                        wcorr.xir_counts(x, y, z, rbins, info, outgr, xr, yr, zr)
+                        wcorr_corrfunc.xir_counts(x, y, z, rbins, info, outgg)
+                        wcorr_corrfunc.xir_counts(xr, yr, zr, rbins, info, outrr)
+                        wcorr_corrfunc.xir_counts(x, y, z, rbins, info, outgr, xr, yr, zr)
     if multi:
         pool.close()
         pool.join()
@@ -597,7 +597,7 @@ def w_plot(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7],
             infile = f'{w_prefix}GR_J{ijack}_m{imag}.pkl'
             (info, DR_counts) = pickle.load(open(infile, 'rb'))
             corrs.append(
-                wcorr.Corr1d(info['Ngal'], info['Ngal'], info['Nran'], info['Nran'],
+                wcorr_corrfunc.Corr1d(info['Ngal'], info['Ngal'], info['Nran'], info['Nran'],
                              DD_counts, DR_counts, DR_counts, RR_counts,
                              mlo=info['mlo'], mhi=info['mhi']))
         corr = corrs[0]
@@ -615,7 +615,7 @@ def w_plot(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7],
     plt.ylabel(r'$w(\theta)$')
     plt.show()
 
-    # wcorr.wplot_scale(cosmo, corr_slices, gamma1=gamma1, gamma2=gamma2,
+    # wcorr_corrfunc.wplot_scale(cosmo, corr_slices, gamma1=gamma1, gamma2=gamma2,
     #                   r0=r0, eps=eps, alpha=alpha, Mstar=Mstar,
     #                   phistar=phistar, kcoeffs=kcoeffs)
 
@@ -642,7 +642,7 @@ def w_plot(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7],
 #             infile = f'{prefix}GR_J{ijack}_m{imag}.pkl'
 #             (info, DR_counts) = pickle.load(open(infile, 'rb'))
 #             corrs.append(
-#                 wcorr.Corr1d(info['Ngal'], info['Nran'],
+#                 wcorr_corrfunc.Corr1d(info['Ngal'], info['Nran'],
 #                              DD_counts, DR_counts, RR_counts,
 #                              mlo=info['mlo'], mhi=info['mhi']))
 #         corr = corrs[0]
@@ -653,7 +653,7 @@ def w_plot(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7],
 #         color = next(ax._get_lines.prop_cycler)['color']
 #         corr.plot(ax, color=color, label=f"m = [{info['mlo']}, {info['mhi']}]")
 
-#         selfn = util.SelectionFunction(
+#         selfn = st_util.SelectionFunction(
 #             cosmo, lf_pars=lf_pars, 
 #             mlo=info['mlo'], mhi=info['mhi'], Mmin=Mmin, Mmax=Mmax,
 #             nksamp=0, kcoeffs=kcoeffs, solid_angle=solid_angle)
@@ -678,9 +678,9 @@ def w_plot(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7],
 #     plt.close(fig)
 
 
-def be_fit(z, pars):
+def be_fit(z, zc, alpha, beta, norm):
     """Generalised Baugh & Efstathiou (1993, eqn 7) model for N(z)."""
-    (zc, alpha, beta, norm) = pars
+    # (zc, alpha, beta, norm) = pars
     return norm * z**alpha * np.exp(-(z/zc)**beta)
 
 
@@ -692,7 +692,7 @@ def w_plot_pred(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7],
     """Plot observed and predicted w(theta) in mag bins.
     Use observed N(z) if Nz_file specified, otherwise use LF prediction."""
 
-    kpoly, lf_dict, Mcen, zmean, lgphi = pickle.load(open(lf_pars, 'rb'))
+    # kpoly, lf_dict, Mcen, zmean, lgphi = pickle.load(open(lf_pars, 'rb'))
     if Nz_file:
          # use observed N(z) rather than LF prediction
          counts_dict = pickle.load(open(Nz_file, 'rb'))
@@ -718,7 +718,7 @@ def w_plot_pred(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7],
             infile = f'{w_prefix}GR_J{ijack}_m{imag}.pkl'
             (info, DR_counts) = pickle.load(open(infile, 'rb'))
             corrs.append(
-                wcorr.Corr1d(info['Ngal'], info['Ngal'], info['Nran'], info['Nran'],
+                wcorr_corrfunc.Corr1d(info['Ngal'], info['Ngal'], info['Nran'], info['Nran'],
                              DD_counts, DR_counts, DR_counts, RR_counts,
                              mlo=info['mlo'], mhi=info['mhi']))
         corr = corrs[0]
@@ -729,7 +729,7 @@ def w_plot_pred(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7],
         color = next(ax._get_lines.prop_cycler)['color']
         corr.plot(ax, color=color, label=f"m = [{info['mlo']}, {info['mhi']}]")
 
-        selfn = util.SelectionFunction(
+        selfn = st_util.SelectionFunction(
             cosmo, lf_pars=lf_pars, 
             mlo=info['mlo'], mhi=info['mhi'], solid_angle=solid_angle, interp=1)
         if Nz_file:
@@ -775,14 +775,15 @@ def Nz(zbins=np.linspace(0.0, 2.0, 41), lf_pars=lf_file,
     zcen = zbins[:-1] + 0.5*np.diff(zbins)
     zmin, zmax = zbins[0], zbins[-1]
     zp = np.linspace(zmin, zmax, 500)
-    counts_dict = {'zbins': zbins, 'zcen': zcen}
+    zhist = np.zeros((len(magbins)-1, len(zbins)-1))
+    be_pars = np.zeros((len(magbins)-1, 4))
     plt.clf()
     ax = plt.subplot(111)
     for imag in range(len(magbins) - 1):
         mlo, mhi = magbins[imag], magbins[imag+1]
         sel = (magbins[imag] <= mag) * (mag < magbins[imag+1])
-        color = next(ax._get_lines.prop_cycler)['color']
         counts, edges = np.histogram(z[sel], zbins)
+        zhist[imag, :] = counts
         # spline = interpolate.UnivariateSpline(zcen, counts, bbox=(zmin, zmax),
         #                                       s=len(counts)*np.std(counts))
         # print(spline.roots(), spline.get_residual(), spline.get_knots(), spline.get_coeffs())
@@ -790,17 +791,20 @@ def Nz(zbins=np.linspace(0.0, 2.0, 41), lf_pars=lf_file,
         popt, pcov = scipy.optimize.curve_fit(be_fit, zcen, counts,
                                               p0=(0.5, 2.0, 1.5, 1e6))
         print(popt)
-
-        counts_dict.update({imag: (mlo, mhi, counts, popt)})
-        plt.stairs(counts, edges, color=color, label=f"m = {mlo}, {mhi}]")
+        be_pars[imag, :] = popt
+        p = plt.stairs(counts, edges, label=f"m = {mlo}, {mhi}]")
+        clr = p.get_facecolor()  # save colour for prediction
         # plt.plot(zp, spline(zp), color=color, ls='-')
-        plt.plot(zp, be_fit(zp, popt), color=color, ls='-')
-        selfn = util.SelectionFunction(
-            cosmo, lf_pars=lf_pars, 
-            mlo=mlo, mhi=mhi, solid_angle=solid_angle,
-            dz=zbins[1]-zbins[0], interp=interp)
-        selfn.plot_Nz(ax, color=color, ls='--')
+        # plt.plot(zp, be_fit(zp, *popt), color=clr, ls='-')
+        plt.plot(zp, be_fit(zp, *popt), ls='-')
+        # selfn = st_util.SelectionFunction(
+        #     cosmo, lf_pars=lf_pars, 
+        #     mlo=mlo, mhi=mhi, solid_angle=solid_angle,
+        #     dz=zbins[1]-zbins[0], interp=interp)
+        # selfn.plot_Nz(ax, color=clr, ls='--')
 
+    counts_dict = {'band': band, 'zbins': zbins, 'zcen': zcen, 'mbins': magbins,
+                   'zhist': counts, 'be_pars': be_pars}
     pickle.dump(counts_dict, open(outfile, 'wb'))
     plt.legend()
     plt.xlabel('z')
@@ -826,7 +830,7 @@ def mcmc(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7], prefix='w_mag/',
             infile = f'{prefix}GR_J{ijack}_m{imag}.pkl'
             (info, DR_counts) = pickle.load(open(infile, 'rb'))
             corrs.append(
-                wcorr.Corr1d(info['Ngal'], info['Nran'],
+                wcorr_corrfunc.Corr1d(info['Ngal'], info['Nran'],
                              DD_counts, DR_counts, RR_counts,
                              mlo=info['mlo'], mhi=info['mhi']))
         corr = corrs[0]
@@ -834,7 +838,7 @@ def mcmc(nmag=5, njack=16, fit_range=[0.01, 1], p0=[0.05, 1.7], prefix='w_mag/',
         corr.ic_calc(fit_range, p0, 5)
         corr_slices.append(corr)
 
-    wcorr.mcmc(cosmo, corr_slices, gamma1=gamma1, gamma2=gamma2,
+    wcorr_corrfunc.mcmc(cosmo, corr_slices, gamma1=gamma1, gamma2=gamma2,
                r0=r0, eps=eps, alpha=alpha, Mstar=Mstar,
                phistar=phistar, kcoeffs=kcoeffs, nstep=nstep)
 
@@ -860,7 +864,7 @@ def xir_z_plot(nz=10, njack=10, fit_range=[0.1, 20], p0=[5, 1.7], prefix='xir_z/
             infile = f'{prefix}RR_j{ijack}_z{iz}.pkl'
             (info, RR_counts) = pickle.load(open(infile, 'rb'))
             corrs.append(
-                wcorr.Corr1d(info['Ngal'], info['Nran'],
+                wcorr_corrfunc.Corr1d(info['Ngal'], info['Nran'],
                              DD_counts, DR_counts, RR_counts))
         corr = corrs[0]
         corr.err = (njack-1)*np.std(np.array([corrs[i].est for i in range(1, njack+1)]), axis=0)
@@ -983,7 +987,7 @@ def xir_M_z_plot_corrfunc(nm=5, nz=10, njack=9, fit_range=[0.1, 20], p0=[5, 1.7]
                     (_, DR_counts) = pickle.load(open(infile, 'rb'))
                     infile = f'{prefix}RR_j{ijack}_z{iz}_M{im}.pkl'
                     (_, RR_counts) = pickle.load(open(infile, 'rb'))
-                    corr = wcorr.Corr1d()
+                    corr = wcorr_corrfunc.Corr1d()
                     corr.ngal = info['Ngal']
                     corr.nran = info['Nran']
                     corr.dd = DD_counts
@@ -1089,7 +1093,7 @@ def xir_M_z_plot_corrfunc(nm=5, nz=10, njack=9, fit_range=[0.1, 20], p0=[5, 1.7]
                     infile = f'{prefix}RR_j{ijack}_z{iz}_M{im}.pkl'
                     (_, RR_counts) = pickle.load(open(infile, 'rb'))
                     corrs.append(
-                        wcorr.Corr1d(
+                        wcorr_corrfunc.Corr1d(
                             info['Ngal'], info['Ngal'], info['Nran'], info['Nran'],
                             DD_counts, DR_counts, DR_counts, RR_counts))
                 if info['Ngal'] > Ngal_min:
@@ -1383,7 +1387,7 @@ def xir_M_z_plot(nm=5, nz=10, njack=9, fit_range=[0.1, 20], p0=[5, 1.7],
             color = next(ax._get_lines.prop_cycler)['color']
             try:
                 infile = f'{prefix}xir_iz{iz}_im{im}.fits'
-                corr = wcorr.Corr1d(infile)
+                corr = wcorr_corrfunc.Corr1d(infile)
                 if corr.meta['NGAL'] > Ngal_min:
                     if xiscale:
                         popt, pcov = corr.fit_xi(fit_range, p0, ax, color,
@@ -1463,7 +1467,7 @@ def xir_M_z_plot(nm=5, nz=10, njack=9, fit_range=[0.1, 20], p0=[5, 1.7],
             color = next(ax._get_lines.prop_cycler)['color']
             try:
                 infile = f'{prefix}xir_iz{iz}_im{im}.fits'
-                corr = wcorr.Corr1d(infile)
+                corr = wcorr_corrfunc.Corr1d(infile)
                 if corr.meta['NGAL'] > Ngal_min:
                     if xiscale:
                         popt, pcov = corr.fit_xi(fit_range, p0, ax, color,
@@ -1715,20 +1719,21 @@ def xir_mag_plot(nm=6, fit_range=[0.1, 20], p0=[5, 1.7],
         ax.set_ylabel(r'$\xi(r)$')
     ax.set_xlabel(r'$r$ [Mpc/h]')
     for im in range(nm):
-        color = next(ax._get_lines.prop_cycler)['color']
         infile = f'{prefix}xir_im{im}.fits'
-        corr = wcorr.Corr1d(infile)
+        corr = wcorr_corrfunc.Corr1d(infile)
         mlo[im], mhi[im] = corr.meta['MLO'], corr.meta['MHI']
         if xiscale:
-            popt, pcov = corr.fit_xi(fit_range, p0, ax, color,
+            popt, pcov = corr.fit_xi(fit_range, p0, ax,
                                     plot_scale=corr.sep**2)
+            clr = plt.gca().lines[-1].get_color()
             ax.errorbar(corr.sep, corr.sep**2*corr.est_corr(),
-                        corr.sep**2*corr.err, color=color, fmt='o',
+                        corr.sep**2*corr.err, color=clr, fmt='o',
                         label=rf"$m_{band} = [{mlo[im]:3.1f}, {mhi[im]:3.1f}]$")
         else:
-            popt, pcov = corr.fit_xi(fit_range, p0, ax, color)
+            popt, pcov = corr.fit_xi(fit_range, p0, ax)
+            clr = plt.gca().lines[-1].get_color()
             ax.errorbar(corr.sep, corr.est_corr(),
-                        corr.err, color=color, fmt='o',
+                        corr.err, color=clr, fmt='o',
                         label=rf"$m_{band} = [{mlo[im]:3.1f}, {mhi[im]:3.1f}]$")
         mmean[im] = corr.meta['M_app_mean']
         r0[im], gamma[im] = popt
@@ -1767,7 +1772,7 @@ def xir_mag_z_plot(nz=10, nm=6, fit_range=[1, 50], p0=[5, 1.7], xiscale=0,
     for iz in range(nz):
         color = next(ax._get_lines.prop_cycler)['color']
         infile = f'{prefix}xir_z{iz}.fits'
-        corr = wcorr.Corr1d(infile)
+        corr = wcorr_corrfunc.Corr1d(infile)
         zlo, zhi, zmean[iz] = corr.meta['ZLO'], corr.meta['ZHI'], corr.meta['ZMEAN']
         if xiscale:
             popt, pcov = corr.fit_xi(fit_range, p0, ax, color,
@@ -1780,7 +1785,7 @@ def xir_mag_z_plot(nz=10, nm=6, fit_range=[1, 50], p0=[5, 1.7], xiscale=0,
             ax.errorbar(corr.sep, corr.est_corr(),
                         corr.err, color=color, fmt='o',
                         label=rf"$z = [{zlo:3.1f}, {zhi:3.1f}]$")
-            xi_int[iz] = wcorr.xi_power_law_integral(*popt, weight, rmin, rmax)
+            xi_int[iz] = wcorr_corrfunc.xi_power_law_integral(*popt, weight, rmin, rmax)
         print(popt)
     ax.loglog()
     ax.legend()
@@ -1810,7 +1815,7 @@ def xir_mag_z_plot(nz=10, nm=6, fit_range=[1, 50], p0=[5, 1.7], xiscale=0,
             color = next(ax._get_lines.prop_cycler)['color']
             infile = f'{prefix}xir_iz{iz}_im{im}.fits'
             try:
-                corr = wcorr.Corr1d(infile)
+                corr = wcorr_corrfunc.Corr1d(infile)
                 zlo, zhi = corr.meta['ZLO'], corr.meta['ZHI']
                 zmean.append(corr.meta['ZMEAN'])
                 if xiscale:
@@ -1824,7 +1829,7 @@ def xir_mag_z_plot(nz=10, nm=6, fit_range=[1, 50], p0=[5, 1.7], xiscale=0,
                     ax.errorbar(corr.sep, corr.est_corr(),
                                 corr.err, color=color, fmt='o',
                                 label=rf"$z = [{zlo:3.1f}, {zhi:3.1f}]$")
-                    xi_int.append(wcorr.xi_power_law_integral(*popt, weight, rmin, rmax))
+                    xi_int.append(wcorr_corrfunc.xi_power_law_integral(*popt, weight, rmin, rmax))
                 print(popt)
             except FileNotFoundError:
                 pass
@@ -2070,7 +2075,7 @@ def gen_selfn(infile='14516.fits', outfile='sel_14516.pkl',
     for im in range(len(M_bins) - 1):
         Mmin, Mmax = M_bins[im], M_bins[im+1]
         sel = (Mmin <= ktable['M']) * (ktable['M'] < Mmax)
-        selfn = util.SelectionFunction(
+        selfn = st_util.SelectionFunction(
             cosmo, alpha=[-0.956, -0.196], Mstar=[-21.135, -0.497],
             phistar=[9.81e-4, -3.24e-4], mmin=0, mmax=25,
             Mmin=Mmin, Mmax=Mmax, ktable=ktable[sel], nksamp=nksamp,

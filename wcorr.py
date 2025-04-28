@@ -137,71 +137,6 @@ class Cat(object):
 class Corr1d(object):
     """1d clustering estimate."""
 
-    def __init__old(self, ngal=0, nran=0, dd=0, dr=0, rr=0, d1d2=0, d2r1=0,
-                    mlo=0, mhi=0, est='ls'):
-
-        self.mlo = mlo
-        self.mhi = mhi
-        self.ic = 0
-        if ngal > 0:
-            self.ngal = ngal
-            self.nran = nran
-            try:
-                self.lgsep = 0.5*(np.log10(dd['thetamin']) + np.log10(dd['thetamax']))
-                self.sep = 10**self.lgsep
-                self.sep_av = dd['thetaavg']
-            except ValueError:
-                self.sep = 10**(0.5*(np.log10(dd['rmin']) + np.log10(dd['rmax'])))
-                self.sep_av = dd['ravg']
-            self.dd = dd['npairs']
-            self.dr = dr['npairs']
-            self.rr = rr['npairs']
-            if est == 'ls':
-                self.est = np.nan_to_num(Corrfunc.utils.convert_3d_counts_to_cf(
-                    ngal, ngal, nran, nran, dd, dr, dr, rr))
-            if est == 'phx':
-                self.est = nran/ngal * d1d2['npairs']/d2r1['npairs'] - 1
-                    
-    # def __init__(self, nd1=0, nd2=0, nr1=0, nr2=0, d1d2=0, d1r2=0, d2r1=0,
-    #              r1r2=0, mlo=0, mhi=0, estimator='LS', infile=None):
-
-        # self.mlo = mlo
-        # self.mhi = mhi
-        # self.ic = 0
-
-        # if '.fits' in infile:
-        #     # Read treecorr output file
-        #     t = Table.read(infile)
-        #     with fits.open(infile) as hdul:
-        #         xi_jack = hdul[2].data
-        #         self.njack = hdul[2].shape[0]
-        #     self.sep = t['meanr']
-        #     self.est = np.vstack((t['xi'], xi_jack))
-        #     self.err = t['sigma_xi']
-        #     self.r1r2 = t['RR']
-
-        # if nd1 > 0:
-        #     self.nd1 = nd1
-        #     self.nd2 = nd2
-        #     self.nr1 = nr1
-        #     self.nr2 = nr2
-        #     try:
-        #         self.lgsep = 0.5*(np.log10(d1d2['thetamin']) + np.log10(d1d2['thetamax']))
-        #         self.sep = 10**self.lgsep
-        #         self.sep_av = d1d2['thetaavg']
-        #     except ValueError:
-        #         self.sep = 10**(0.5*(np.log10(d1d2['rmin']) + np.log10(d1d2['rmax'])))
-        #         self.sep_av = d1d2['ravg']
-        #     self.d1d2 = d1d2['npairs']
-        #     self.d1r2 = d1r2['npairs']
-        #     self.d2r1 = d2r1['npairs']
-        #     self.r1r2 = r1r2['npairs']
-        #     if estimator == 'LS':
-        #         self.est = np.nan_to_num(Corrfunc.utils.convert_3d_counts_to_cf(
-        #             nd1, nd2, nr1, nr2, d1d2, d1r2, d2r1, r1r2, estimator))
-        #     if estimator == 'phx':
-        #         self.est = nran/ngal * d1d2['npairs']/d2r1['npairs'] - 1
-                    
     def __init__(self, infile=None):
 
         self.ic = 0
@@ -215,13 +150,21 @@ class Corr1d(object):
             self.sep = t['meanr']
             self.est = np.vstack((t['xi'], xi_jack))
             self.err = t['sigma_xi']
+            self.d1d2 = t['DD']
             self.r1r2 = t['RR']
+            self.d1r2 = t['DR']
+            self.d2r1 = t['DR']
+            self.nd1 = t.meta['NGAL']
+            self.nd2 = t.meta['NGAL']
+            self.nr1 = t.meta['NRAN']
+            self.nr2 = t.meta['NRAN']
             self.meta = t.meta
 
                     
-    def average(self, corrs, avgcounts=False):
-        """Average over realisations or subsamples.  Set avgcounts=True
-        to average counts rather than averaging corr fn estimate."""
+    def average(self, corrs, sumcounts=False):
+        """Average over realisations or subsamples.  Set sumcounts=True
+        to sum counts rather than averaging corr fn estimate.
+        Cannot estimate JK errors for this case, as pair counts for each JK are not known, only xi."""
 
         nest = len(corrs)
         self.mlo = corrs[0].mlo
@@ -234,13 +177,13 @@ class Corr1d(object):
         self.d1r2 = np.sum(np.array([corrs[i].d1r2 for i in range(nest)]), axis=0)
         self.d2r1 = np.sum(np.array([corrs[i].d2r1 for i in range(nest)]), axis=0)
         self.r1r2 = np.sum(np.array([corrs[i].r1r2 for i in range(nest)]), axis=0)
-        self.err = np.nan_to_num(np.std(np.array([corrs[i].est for i in range(nest)]), axis=0))
-        if avgcounts:
-            self.est = np.nan_to_num(Corrfunc.utils.convert_3d_counts_to_cf(
+        if sumcounts:
+            self.est[0, :] = np.nan_to_num(Corrfunc.utils.convert_3d_counts_to_cf(
                 self.nd1, self.nd2, self.nr1, self.nr2,
                 self.d1d2, self.d1r2, self.d2r1, self.r1r2))
         else:
             self.est = np.mean(np.array([corrs[i].est for i in range(nest)]), axis=0)
+            self.err = np.nan_to_num(np.std(np.array([corrs[i].est for i in range(nest)]), axis=0))
 
     def ic_calc_xi(self, fit_range, p0=[5, 1.7], ic_rmax=50, niter=3):
         """Returns estimated integral constraint for power law xi(r)
@@ -309,17 +252,18 @@ class Corr1d(object):
         sel = ((self.sep >= fit_range[0]) * (self.sep < fit_range[1]) *
                np.isfinite(self.est_corr(ijack)) * (self.err > 0) *
                (self.est_corr(ijack) > 0)) # (self.r1r2 > 10)
-        try:
-            popt, pcov = scipy.optimize.curve_fit(
-                power_law, self.sep[sel], self.est_corr(ijack)[sel], p0=p0,
-                sigma=self.err[sel], ftol=ftol, xtol=xtol)
-            if ax:
-                ax.plot(self.sep[sel], power_law(self.sep[sel], *popt), color=color)
-        except (RuntimeError, TypeError, ValueError):
-            popt = np.zeros(2)
-            pcov = np.inf*np.ones((2, 2))
+        # try:
+        popt, pcov = scipy.optimize.curve_fit(
+            power_law, self.sep[sel], self.est_corr(ijack)[sel], p0=p0,
+            sigma=self.err[sel], ftol=ftol, xtol=xtol)
+        if ax:
+            ax.plot(self.sep[sel], power_law(self.sep[sel], *popt), color=color,
+                    label=fr'$A={popt[0]:4.3f}, \gamma={popt[1]:4.2f}$')
+        # except (RuntimeError, TypeError, ValueError):
+        #     popt = np.zeros(2)
+        #     pcov = np.inf*np.ones((2, 2))
         # if popt[0] < 0:
-        #     pdb.set_trace()
+        # pdb.set_trace()
             
         return popt, pcov
 
@@ -1465,25 +1409,50 @@ def poly_test():
     plt.show()
 
 
-def sel_test():
-    cosmo = util.CosmoLookup()
-    selfn = util.SelectionFunction(cosmo, plot=True)
-    
-def corrfunc_test(nran=1000, tmin=0.01, tmax=10, nbins=20):
-    """Random-random pair count test."""
+def xi_rp_pi(gal_ra, gal_dec, gal_r, ran_ra, ran_dec, ran_r, npatch=9,
+             rp_min=0.01, rp_max=10, rp_bins=20, pi_bins=np.linspace(0, 40, 11),
+             out_dir=''):
+    """xi(rp, pi) pair counts by calling treecorr with different pi limits."""
 
-    bins = np.logspace(np.log10(tmin), np.log10(tmax), nbins + 1)
-    ra = 20*rng.random(nran)
-    dec = 20*rng.random(nran)
-    counts = Corrfunc.mocks.DDtheta_mocks(1, 1, bins, ra, dec)
-    print(counts)
+    rancat = treecorr.Catalog(
+        ra=ran_ra.astype('float64'), dec=ran_dec.astype('float64'), r=ran_r,
+        ra_units='deg', dec_units='deg', npatch=npatch)
+    galcat = treecorr.Catalog(
+        ra=gal_ra, dec=gal_dec, r=gal_r,
+        ra_units='deg', dec_units='deg',
+        patch_centers=rancat.patch_centers)
 
-    counts = Corrfunc.mocks.DDtheta_mocks(1, 1, bins, ra.astype('float32'), dec.astype('float32'))
-    print(counts)
+    for ipi in range(len(pi_bins)-1):
+        for pp in ['pos', 'neg']:
+            if pp == 'pos':
+                pilo, pihi = pi_bins[ipi], pi_bins[ipi+1]
+            else:
+                pilo, pihi = -pi_bins[ipi+1], -pi_bins[ipi]
 
-    theta = np.linspace(0, 180, 181)
-    plt.clf()
-    plt.plot(theta, np.sin(np.deg2rad(theta)/2)**2)
-    plt.xlabel(r'$\theta$')
-    plt.ylabel(r'$\sin^2(\theta/2)$')
-    plt.show()
+            dd = treecorr.NNCorrelation(
+                min_sep=rp_min, max_sep=rp_max, nbins=rp_bins,
+                metric='Rperp', min_rpar=pilo, max_rpar=pihi,
+                var_method='jackknife', cross_patch_weight='match')
+            dd.process(galcat)
+            dr = treecorr.NNCorrelation(
+                min_sep=rp_min, max_sep=rp_max, nbins=rp_bins,
+                metric='Rperp', min_rpar=pilo, max_rpar=pihi,
+                cross_patch_weight='match')
+            dr.process(galcat, rancat)
+            rr = treecorr.NNCorrelation(
+                min_sep=rp_min, max_sep=rp_max, nbins=rp_bins,
+                metric='Rperp', min_rpar=pilo, max_rpar=pihi,
+                cross_patch_weight='match')
+            rr.process(rancat)
+            dd.calculateXi(rr=rr, dr=dr)
+            xi_jack, w = dd.build_cov_design_matrix('jackknife')
+            outfile = f'{out_dir}/xi_rp_pi_{pp}{ipi}.fits'
+            dd.write(outfile, rr=rr, dr=dr)
+            with fits.open(outfile, mode='update') as hdul:
+                hdr = hdul[1].header
+                hdr['pi_min'] = pilo
+                hdr['pi_max'] = pihi
+                hdr['Ngal'] = galcat.nobj
+                hdr['Nran'] = rancat.nobj
+                hdul.append(fits.PrimaryHDU(xi_jack))
+                hdul.flush()

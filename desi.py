@@ -987,3 +987,50 @@ def BGS_N_cz_counts(spec_gal_file='DESI/BGS_ANY_N_clustering.dat.fits',
     
     cluster_z.pair_counts(spec_gal_file, spec_ran_file, phot_gal_file, phot_ran_file, out_dir, mag_fn=mag_fn, zbins=zbins, magbins=magbins, npatch=10)
     
+
+def w_p_test(outfile='xi.pkl'):
+    """Test projected correlation function calc."""
+
+    nthreads = 8
+    log_rp_bins = np.linspace(-1, 1, 15)
+    log_rp_cen = log_rp_bins[:-1] + 0.5*np.diff(log_rp_bins)
+    rp_bins = 10**log_rp_bins
+    rp_cen = 10**log_rp_cen
+    gal = Table.read('BGS_ANY_SGC_clustering.dat.fits')
+    ran = Table.read('BGS_ANY_SGC_0_clustering.ran.fits')
+
+    # Auto pairs counts in RR
+    RR_counts = Corrfunc.mocks.DDrppi_mocks(
+        autocorr=1, cosmology=2, nthreads=nthreads, pimax=40, binfile=rp_bins,
+        RA1=ran['RA'], DEC1=ran['DEC'], CZ1=ran['Z'])
+
+    # Auto pair counts in DD
+    DD_counts = Corrfunc.mocks.DDrppi_mocks(
+        autocorr=1, cosmology=2, nthreads=nthreads, pimax=40, binfile=rp_bins,
+        RA1=gal['RA'], DEC1=gal['DEC'], CZ1=gal['Z'])
+
+    # Cross pair counts in DR
+    DR_counts = Corrfunc.mocks.DDrppi_mocks(
+        autocorr=0, cosmology=2, nthreads=nthreads, pimax=40, binfile=rp_bins,
+        RA1=gal['RA'], DEC1=gal['DEC'], CZ1=gal['Z'],
+        RA2=ran['RA'], DEC2=ran['DEC'], CZ2=ran['Z'])
+
+    # All the pair counts are done, get the angular correlation function
+    xi2d = Corrfunc.utils.convert_3d_counts_to_cf(
+        len(gal), len(gal), len(ran),  len(ran),
+        DD_counts, DR_counts, DR_counts, RR_counts)
+
+    w_p = Corrfunc.utils.convert_rp_pi_counts_to_wp(
+        len(gal), len(gal), len(ran),  len(ran),
+        DD_counts, DR_counts, DR_counts, RR_counts)
+
+    pickle.dump({'rp_bins': rp_bins, 'rp_cen': rp_cen,
+                 'DD': DD_counts, 'DR': DR_counts, 'RR': RR_counts,
+                 'xi2d': xi2d, 'w_p': w_p}, open(outfile, 'wb'))
+
+    plt.clf()
+    plt.plot(rp_cen, w_p)
+    plt.loglog()
+    plt.xlabel('r_p [Mpc]')
+    plt.ylabel('w_p(r_p)')
+    plt.show()

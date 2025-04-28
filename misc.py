@@ -2727,3 +2727,21 @@ def sum_times(infile):
     india = 2*32.47 + 45.3*(6+11)
     usa = 32.47 + 20.47*38
     print('total UK cost', sum*0.01, 'India', india*0.01, 'US', usa*0.01)
+
+
+def plot_test():
+    """Test colour saving."""
+
+    plt.clf()
+    plt.plot((0, 1), (0, 1))
+    clr = plt.gca().lines[-1].get_color()
+    print(clr)
+    plt.show()
+
+    plt.clf()
+    p = plt.stairs((1, 2), (0, 1, 2))
+    clr = p.get_facecolor()
+    print(clr)
+    plt.show()
+
+    
