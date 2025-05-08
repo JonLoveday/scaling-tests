@@ -1,8 +1,8 @@
 # Clustering measurements for WAVES target catalogues using treecorr
 
-import glob
+# import glob
 import math
-import multiprocessing as mp
+# import multiprocessing as mp
 import numpy as np
 from numpy.polynomial import Polynomial
 from numpy.random import default_rng
@@ -10,18 +10,18 @@ from pathlib import Path
 import pickle
 import matplotlib.pyplot as plt
 import scipy.optimize
-import subprocess
-from astropy import constants as const
+# import subprocess
+# from astropy import constants as const
 from astropy.coordinates import SkyCoord
 from astropy.table import Table, join
 from astropy.wcs import WCS
 from astropy.io import fits
-from astropy import units as u
+# from astropy import units as u
 import treecorr
-import pdb
+# import pdb
 import pymangle
 
-import calc_kcor
+# import calc_kcor
 import limber
 import st_util
 import wcorr
