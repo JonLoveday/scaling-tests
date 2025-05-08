@@ -14,3 +14,10 @@ def gaia_mask(infile='edfs.fits', outfile='edfs.ply'):
         print('unit d', file=fout)
         for i in range(len(stars)):
             print(stars['ra'][i], stars['dec'][i], rad[i], file=fout)
+
+
+def plotran(infile='ran.dat'):
+    '''Plot ransack generated randoms.'''
+    ran = np.loadtxt(infile, skiprows=1)
+    plt.scatter(ran[:, 0], ran[:, 1], s=0.1)
+    plt.show()

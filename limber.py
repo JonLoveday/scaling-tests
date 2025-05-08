@@ -18,6 +18,7 @@ import scipy.special
 # from Corrfunc.utils import convert_3d_counts_to_cf
 import st_util
 
+
 def w_a_sel(cosmo, selfn, gamma=1.7, r0=5.0, eps=0, plotint=0):
     """Returns w(theta) amplitude for power-law xi(r) and given sel fns."""
     
