@@ -1,22 +1,23 @@
 # Limber scaling for angular correlation functions
 
-import glob
+# import glob
 import math
 import matplotlib.pyplot as plt
-import mpmath
+# import mpmath
 import numpy as np
 import pdb
 import pickle
 import pylab as plt
 import scipy.special
-import subprocess
-from astropy import constants as const
-from astropy.coordinates import SkyCoord
-from astropy.table import Table
-from astropy import units as u
+# import subprocess
+# from astropy import constants as const
+# from astropy.coordinates import SkyCoord
+# from astropy.table import Table
+# from astropy import units as u
 # from Corrfunc.mocks.DDtheta_mocks import DDtheta_mocks
 # from Corrfunc.utils import convert_3d_counts_to_cf
-import util
+import st_util
+
 
 def w_a_sel(cosmo, selfn, gamma=1.7, r0=5.0, eps=0, plotint=0):
     """Returns w(theta) amplitude for power-law xi(r) and given sel fns."""
@@ -127,7 +128,7 @@ def limber_scale_mult(gamma1=1.7, gamma2=4, r0=5.0, eps=0,
                  zbins=np.linspace(0.0, 0.5, 100), plotsel=0, plotint=1):
     """Scale w(theta) to reference depth for two power-law model."""
     
-    cosmo = util.CosmoLookup(zbins=zbins, plot=0)
+    cosmo = st_util.CosmoLookup(zbins=zbins, plot=0)
     nmag = len(maglims)-1
     A, B = np.zeros(nmag), np.zeros(nmag)
     if plotsel:

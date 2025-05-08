@@ -10,7 +10,7 @@ import pickle
 import pylab as plt
 import pymangle
 
-import util
+import st_util
 import wcorr
 
 rng = default_rng()
@@ -18,7 +18,7 @@ rng = default_rng()
 # WMAP7 cosomology, converting to h=1 units
 h = 1
 Om0 = 0.272
-cosmo = util.CosmoLookup(h, Om0)
+cosmo = st_util.CosmoLookup(h, Om0)
 
 def make_masks():
     """Masks for gama mock groups."""
@@ -317,7 +317,7 @@ def limber_scale(gamma1=1.8, gamma2=2.8, r0=5.0, eps=-3,
                  zbins=np.linspace(0.0, 0.5, 100), plotsel=0, plotint=1):
     """Scale GAMA mock w(theta) measurements to depth of brightest slice."""
     
-    cosmo = util.CosmoLookup(zbins=zbins, plot=0)
+    cosmo = st_util.CosmoLookup(zbins=zbins, plot=0)
     nmag = len(maglims)-1
     A, B = np.zeros(nmag), np.zeros(nmag)
     if plotsel:
