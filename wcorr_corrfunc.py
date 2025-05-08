@@ -2,7 +2,7 @@
 
 import corner
 import emcee
-import glob
+# import glob
 import math
 # from multiprocessing import Pool
 import numpy as np
@@ -17,20 +17,20 @@ import pickle
 import pylab as plt
 import scipy.optimize
 import subprocess
-from astropy import constants as const
-from astropy.coordinates import SkyCoord
+# from astropy import constants as const
+# from astropy.coordinates import SkyCoord
 from astropy.cosmology import WMAP9 as cosmo
 from astropy.io import fits
 from astropy.table import Table
-from astropy import units as u
+# from astropy import units as u
 import Corrfunc
 # import Corrfunc.mocks
 # from Corrfunc.utils import convert_3d_counts_to_cf
-import multiprocessing as mp
-import pymangle
+# import multiprocessing as mp
+# import pymangle
 import treecorr
 
-import calc_kcor
+# import calc_kcor
 import limber
 import st_util
 
