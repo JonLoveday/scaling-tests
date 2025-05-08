@@ -32,7 +32,7 @@ import treecorr
 
 import calc_kcor
 import limber
-import util
+import st_util
 
 ln10 = math.log(10)
 rng = default_rng()
@@ -1052,14 +1052,14 @@ def wplot_samp(infile='w_hsc.pkl', tfitlo=0.01, tfithi=0.05, p0=[1e-2, 1.7],
 #     fig.subplots_adjust(hspace=0, wspace=0)
 #     mmin = maglims[0]
 #     mmax = maglims[1]
-#     selref = util.SelectionFunction(
+#     selref = st_util.SelectionFunction(
 #         cosmo, alpha=alpha, Mstar=Mstar, phistar=phistar, mmin=mmin, mmax=mmax,
 #         Mmin=Mmin, Mmax=Mmax, nksamp=0,
 #         kcoeffs=kcoeffs)
 #     for isub in range(len(lbl)):
 #         mmin = maglims[isub]
 #         mmax = maglims[isub+1]
-#         selfn = util.SelectionFunction(
+#         selfn = st_util.SelectionFunction(
 #             cosmo, alpha=alpha, Mstar=Mstar, phistar=phistar,
 #             mmin=mmin, mmax=mmax, Mmin=Mmin, Mmax=Mmax, nksamp=0, kcoeffs=kcoeffs)
 #         dlgt, dlgw = limber.limber_scale(
@@ -1088,7 +1088,7 @@ def plot_sel(cosmo, wcorrs, gamma1=1.7, gamma2=4, r0=5.0, eps=0,
     plt.clf()
     fig, ax = plt.subplots(1, 1, num=1)
     for wcorr in wcorrs:
-        selfn = util.SelectionFunction(
+        selfn = st_util.SelectionFunction(
             cosmo, alpha=alpha, Mstar=Mstar, phistar=phistar,
             mlo=wcorr.mlo, mhi=wcorr.mhi, Mmin=Mmin, Mmax=Mmax,
             nksamp=0, kcoeffs=kcoeffs)
@@ -1114,7 +1114,7 @@ def wplot_scale(cosmo, wcorrs, gamma1=1.7, gamma2=4, r0=5.0, eps=0,
         fig2, ax2 = plt.subplots(1, 1, num=2)
     fig.set_size_inches(6, 4)
     fig.subplots_adjust(hspace=0, wspace=0)
-    selref = util.SelectionFunction(
+    selref = st_util.SelectionFunction(
         cosmo, lf_pars, mlo=wcorrs[0].mlo, mhi=wcorrs[0].mhi)
     if Nz_file:
         # Replace LF-calculated N(z) with smooth fit to observed
@@ -1123,7 +1123,7 @@ def wplot_scale(cosmo, wcorrs, gamma1=1.7, gamma2=4, r0=5.0, eps=0,
         assert(wcorrs[0].mlo==mlo and wcorrs[0].mhi==mhi)
         selref._Nz = be_fit(selref._z, *popt)
     for wcorr in wcorrs:
-        selfn = util.SelectionFunction(
+        selfn = st_util.SelectionFunction(
             cosmo, lf_pars=lf_pars, mlo=wcorr.mlo, mhi=wcorr.mhi)
         if Nz_file:
             # Replace LF-calculated N(z) with smooth fit to observed
@@ -1158,12 +1158,12 @@ def w_pred(gamma1=1.7, gamma2=4, r0=5.0, eps=0, mbins = np.linspace(15, 20, 6),
     # Flagship2 cosomology, converting to h=1 units
     h = 1
     Om0 = 0.319
-    cosmo = util.CosmoLookup(h, Om0)
+    cosmo = st_util.CosmoLookup(h, Om0)
     
     plt.clf()
     for mlo in mbins[:-1]:
         mhi = mlo + 1
-        selfn = util.SelectionFunction(
+        selfn = st_util.SelectionFunction(
             cosmo, alpha=alpha, Mstar=Mstar, phistar=phistar,
             mlo=mlo, mhi=mhi, Mmin=Mmin, Mmax=Mmax,
             nksamp=0, kcoeffs=kcoeffs)
@@ -1207,12 +1207,12 @@ def mcmc(cosmo, wcorrs, gamma1=1.7, gamma2=4, r0=5.0, eps=0,
             return -np.inf
            
         chi2 = 0
-        selref = util.SelectionFunction(
+        selref = st_util.SelectionFunction(
             cosmo, alpha=alpha, Mstar=Mstar, phistar=phistar,
             mlo=wcorrs[0].mlo, mhi=wcorrs[0].mhi,
             Mmin=Mmin, Mmax=Mmax, nksamp=0, kcoeffs=kcoeffs)
         for wcorr in wcorrs[1:]:
-            selfn = util.SelectionFunction(
+            selfn = st_util.SelectionFunction(
                 cosmo, alpha=alpha, Mstar=Mstar, phistar=phistar,
                 mlo=wcorr.mlo, mhi=wcorr.mhi, Mmin=Mmin, Mmax=Mmax,
                 nksamp=0, kcoeffs=kcoeffs)
@@ -1281,12 +1281,12 @@ def mcmc(cosmo, wcorrs, gamma1=1.7, gamma2=4, r0=5.0, eps=0,
     fig, axes = plt.subplots(1, 2, sharex=True, sharey=True, num=1)
     fig.set_size_inches(6, 4)
     fig.subplots_adjust(hspace=0, wspace=0)
-    selref = util.SelectionFunction(
+    selref = st_util.SelectionFunction(
         cosmo, alpha=alpha, Mstar=Mstar, phistar=phistar,
         mlo=wcorrs[0].mlo, mhi=wcorrs[0].mhi,
         Mmin=Mmin, Mmax=Mmax, nksamp=0, kcoeffs=kcoeffs)
     for wcorr in wcorrs:
-        selfn = util.SelectionFunction(
+        selfn = st_util.SelectionFunction(
             cosmo, alpha=alpha, Mstar=Mstar, phistar=phistar,
             mlo=wcorr.mlo, mhi=wcorr.mhi, Mmin=Mmin, Mmax=Mmax,
             nksamp=0, kcoeffs=kcoeffs)
