@@ -1,21 +1,21 @@
 # Limber scaling for angular correlation functions
 
-import glob
+# import glob
 import math
 import matplotlib.pyplot as plt
-import mpmath
+# import mpmath
 import numpy as np
 import pdb
 import pickle
 import pylab as plt
 import scipy.special
-import subprocess
-from astropy import constants as const
-from astropy.coordinates import SkyCoord
-from astropy.table import Table
-from astropy import units as u
-from Corrfunc.mocks.DDtheta_mocks import DDtheta_mocks
-from Corrfunc.utils import convert_3d_counts_to_cf
+# import subprocess
+# from astropy import constants as const
+# from astropy.coordinates import SkyCoord
+# from astropy.table import Table
+# from astropy import units as u
+# from Corrfunc.mocks.DDtheta_mocks import DDtheta_mocks
+# from Corrfunc.utils import convert_3d_counts_to_cf
 import st_util
 
 def w_a_sel(cosmo, selfn, gamma=1.7, r0=5.0, eps=0, plotint=0):
