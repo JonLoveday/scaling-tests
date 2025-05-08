@@ -14,8 +14,8 @@ from astropy import constants as const
 from astropy.coordinates import SkyCoord
 from astropy.table import Table
 from astropy import units as u
-from Corrfunc.mocks.DDtheta_mocks import DDtheta_mocks
-from Corrfunc.utils import convert_3d_counts_to_cf
+# from Corrfunc.mocks.DDtheta_mocks import DDtheta_mocks
+# from Corrfunc.utils import convert_3d_counts_to_cf
 import util
 
 def w_a_sel(cosmo, selfn, gamma=1.7, r0=5.0, eps=0, plotint=0):

@@ -40,7 +40,7 @@ rng = default_rng()
 class Cat(object):
     """Set of galaxies or random points."""
 
-    def __init__(self, ra, dec, r=None, sub=None, jack=None, nthreads=2):
+    def __init__(self, ra, dec, r=None, sub=None, sub_names=[], jack=None, nthreads=2):
         self.nobj = len(ra)
         self.ra = ra
         self.dec = dec
@@ -48,7 +48,8 @@ class Cat(object):
             self.r = r
         if (sub is not None):
             self.sub = sub
-            self.nsub = np.max(sub) + 1
+            self.sub_names = sub_names
+            self.nsub = len(sub_names)
         else:
             self.nsub = 0
         if (jack is not None):
@@ -473,10 +474,64 @@ def patch_plot(cat, ax, label, ra_shift=False):
     ax.text(0.05, 0.05, label, transform=ax.transAxes)
 
 
+def wcorr_sub(galaxies, randoms, tmin=0.01, tmax=10, nbins=20, npatch=9, patch_plot_file=None):
+    """Angular pair counts for different sub-samples."""
+
+    rancat = treecorr.Catalog(
+        ra=randoms.ra, dec=randoms.dec, ra_units='deg', dec_units='deg',
+        npatch=npatch)
+    galcat = treecorr.Catalog(
+        ra=galaxies.ra, dec=galaxies.dec, ra_units='deg', dec_units='deg',
+        patch_centers=rancat.patch_centers)
+    if patch_plot_file:
+        fig, axes = plt.subplots(1, 2, sharex=True, sharey=True, num=1)
+        fig.set_size_inches(8, 4)
+        fig.subplots_adjust(hspace=0, wspace=0)
+        patch_plot(galcat, axes[0], 'gal', ra_shift=ra_shift)
+        patch_plot(rancat, axes[1], 'ran', ra_shift=ra_shift)
+        plt.show()
+        plt.savefig(patch_plot_file)
+
+    # random-random counts
+    bins = np.logspace(np.log10(tmin), np.log10(tmax), nbins + 1)
+    tcen = 10**(0.5*np.diff(np.log10(bins)) + np.log10(bins[:-1]))
+
+    rr = treecorr.NNCorrelation(min_sep=tmin, max_sep=tmax, nbins=nbins,
+                                sep_units='degrees')
+    rr.process(rancat)
+
+    # galaxy samples
+    for isub in range(galaxies.nsub):
+        galcat = treecorr.Catalog(
+            ra=galaxies.subset(sub=isub).ra, dec=galaxies.subset(sub=isub).dec, 
+            ra_units='deg', dec_units='deg',
+            patch_centers=rancat.patch_centers)
+        dd = treecorr.NNCorrelation(
+            min_sep=tmin, max_sep=tmax, nbins=nbins,
+            sep_units='degrees', var_method='jackknife')
+        dd.process(galcat)
+        dr = treecorr.NNCorrelation(
+            min_sep=tmin, max_sep=tmax, nbins=nbins,
+            sep_units='degrees')
+        dr.process(galcat, rancat)
+        dd.calculateXi(rr=rr, dr=dr)
+        xi_jack, w = dd.build_cov_design_matrix('jackknife')
+        outfile = f'w_{isub}.fits'
+        dd.write(outfile, rr=rr, dr=dr)
+        with fits.open(outfile, mode='update') as hdul:
+            hdr = hdul[1].header
+            hdr['label'] = galaxies.sub_names[isub]
+            hdr['Ngal'] = galcat.nobj
+            hdr['Nran'] = rancat.nobj
+            hdul.append(fits.PrimaryHDU(xi_jack))
+            hdul.flush()
+    
+    
 def wcounts_mag(galfile, ranfile, out_dir,
                 tmin=0.01, tmax=10, nbins=20,
-                magbins=np.linspace(18, 23, 6), mag_col='Z_MAG', npatch=9):
-    """Angular pair counts in Z-band magnitude bins using treecorr."""
+                magbins=np.linspace(18, 23, 6), ra_col='ra', dec_col='dec',
+                mag_col='Z_MAG', npatch=9):
+    """Angular pair counts in magnitude bins using treecorr."""
 
     # Create out_dir if it doesn't already exist
     Path(out_dir).mkdir(parents=True, exist_ok=True)
@@ -492,10 +547,10 @@ def wcounts_mag(galfile, ranfile, out_dir,
         pass
     ran = Table.read(ranfile)
     rancat = treecorr.Catalog(
-        ra=ran['RA'], dec=ran['DEC'], ra_units='deg', dec_units='deg',
+        ra=ran[ra_col], dec=ran[dec_col], ra_units='deg', dec_units='deg',
         npatch=npatch)
     galcat = treecorr.Catalog(
-        ra=gal['RA'], dec=gal['DEC'], ra_units='deg', dec_units='deg',
+        ra=gal[ra_col], dec=gal[dec_col], ra_units='deg', dec_units='deg',
         patch_centers=rancat.patch_centers)
     ra_shift = 'sgc' in out_dir
     fig, axes = plt.subplots(1, 2, sharex=True, sharey=True, num=1)
@@ -516,12 +571,12 @@ def wcounts_mag(galfile, ranfile, out_dir,
 
  
     # mag bins
-    mag = gal['Z_MAG']
+    mag = gal[mag_col]
     for im in range(len(magbins) - 1):
         mlo, mhi = magbins[im], magbins[im+1]
         sel = (mlo <= mag) * (mag < mhi)
         galcat = treecorr.Catalog(
-            ra=gal['RA'][sel], dec=gal['DEC'][sel],
+            ra=gal[ra_col][sel], dec=gal[dec_col][sel],
             ra_units='deg', dec_units='deg',
             patch_centers=rancat.patch_centers)
         dd = treecorr.NNCorrelation(
@@ -546,61 +601,7 @@ def wcounts_mag(galfile, ranfile, out_dir,
             hdul.flush()
 
 
-def wcalc(galcat, rancat, bins, jack=-1):
-    """w(theta) calc."""
-
-    ra, dec = galcat.sample(jack=jack)
-    rar, decr = rancat.sample(jack=jack)
-
-    # Number of threads to use
-    nthreads = galcat.nthreads
-
-    # Auto pairs counts in RR
-    RR_counts = Corrfunc.mocks.DDtheta_mocks(1, nthreads, bins, rar, decr)
-
-    # Auto pair counts in DD
-    DD_counts = Corrfunc.mocks.DDtheta_mocks(1, nthreads, bins, ra, dec)
-
-    # Cross pair counts in DR
-    DR_counts = Corrfunc.mocks.DDtheta_mocks(0, nthreads, bins, ra, dec, RA2=rar, DEC2=decr)
-
-    # All the pair counts are done, get the angular correlation function
-    wtheta = Corrfunc.utils.convert_3d_counts_to_cf(
-        len(ra), len(ra), len(rar),  len(rar),
-        DD_counts, DR_counts, DR_counts, RR_counts)
-
-    return wtheta, DD_counts, DR_counts, RR_counts
-
-
-def wcounts(ra, dec, bins, info, outfile, ra2=None, dec2=None, nthreads=1,
-            output_thetaavg=False):
-    """w(theta) counts."""
-
-    if ra2 is None:
-        autocorr = 1
-    else:
-        autocorr = 0
-
-    counts = Corrfunc.mocks.DDtheta_mocks(
-        autocorr, nthreads, bins, ra, dec,
-        RA2=ra2, DEC2=dec2, output_thetaavg=output_thetaavg)
-
-    pickle.dump((info, counts), open(outfile, 'wb'))
-    print('Written ', outfile)
-
 def wxcounts(ra, dec, ra2, dec2, bins, info, outfile, nthreads=1,
-             output_thetaavg=False):
-    """w(theta) cross counts using corrfunc."""
-
-    autocorr = 0
-    counts = Corrfunc.mocks.DDtheta_mocks(
-        autocorr, nthreads, bins, ra, dec,
-        RA2=ra2, DEC2=dec2, output_thetaavg=output_thetaavg)
-
-    pickle.dump((info, counts), open(outfile, 'wb'))
-
-
-def wxcounts_tree(ra, dec, ra2, dec2, bins, info, outfile, nthreads=1,
              output_thetaavg=False):
     """w(theta) cross counts using treecorr."""
 
@@ -720,47 +721,6 @@ def xir_calc(galcat, rancat, bins, jack=-1):
         DD_counts, DR_counts, DR_counts, RR_counts)
 
     return xi, DD_counts, DR_counts, RR_counts
-
-
-def wsamp(galcat, rancat, bins, jack=-1):
-    """w(theta) calc for multiple sub-samples."""
-
-    wsub = np.zeros((galcat.nsub, len(bins)-1))
-    rar, decr = rancat.sample(jack)
-
-    # Number of threads to use
-    nthreads = galcat.nthreads
-    print('nthreads = ', nthreads)
-
-    # Auto pairs counts in RR: same for every sub-sample
-    RR_counts = Corrfunc.mocks.DDtheta_mocks(1, nthreads, bins, rar, decr)
-
-    for isub in range(galcat.nsub):
-        ra, dec = galcat.sample(jack, isub)
-        
-        # Auto pair counts in DD
-        DD_counts = Corrfunc.mocks.DDtheta_mocks(1, nthreads, bins, ra, dec)
-
-        # Cross pair counts in DR
-        DR_counts = Corrfunc.mocks.DDtheta_mocks(0, nthreads, bins, ra, dec, RA2=rar, DEC2=decr)
-
-        # All the pair counts are done, get the angular correlation function
-        wsub[isub, :] = Corrfunc.utils.convert_3d_counts_to_cf(
-            len(ra), len(ra), len(rar),  len(rar),
-            DD_counts, DR_counts, DR_counts, RR_counts)
-
-    return wsub, DD_counts, DR_counts, RR_counts
-
-
-def w_jack(galcat, rancat, bins):
-    """w(theta) with JK errors."""
-
-    w, DD_counts, DR_counts, RR_counts = wcalc(galcat, rancat, bins)
-    wj = np.zeros((galcat.njack, len(bins)-1))
-    for jack in range(galcat.njack):
-        wj[jack, :], _, _, _ = wcalc(galcat, rancat, bins, jack=jack)
-    w_err = (galcat.njack-1)**0.5 * np.std(wj, axis=0)
-    return w, w_err, DD_counts, DR_counts, RR_counts
 
 
 def xir_jack(galcat, rancat, bins):
@@ -931,6 +891,28 @@ def w_plot_mag(nmag=6, fit_range=[0.001, 1], p0=[0.05, 1.7]):
         corr.plot(ax, color=color, label=f"m = [{mlo}, {mhi}]")
         if fit_range:
             popt, pcov = corr.fit_w(fit_range, p0, ax, color)
+            print(popt, pcov)
+    plt.loglog()
+    plt.legend()
+    plt.xlabel(r'$\theta$ / degrees')
+    plt.ylabel(r'$w(\theta)$')
+    plt.show()
+
+
+def w_plot_sub(nsub=5, fit_range=[0.001, 1], p0=[0.05, 1.7]):
+    """Plot w(theta) for sub-samples."""
+
+    plt.clf()
+    ax = plt.subplot(111)
+    corr_slices = []
+    for isub in range(nsub):
+        infile = f'w_{isub}.fits'
+        corr = Corr1d(infile)
+        corr.plot(ax, label=corr.meta['LABEL'])
+        clr = plt.gca().lines[-1].get_color()  # save colour for fit and prediction
+
+        if fit_range:
+            popt, pcov = corr.fit_w(fit_range, p0, ax, clr)
             print(popt, pcov)
     plt.loglog()
     plt.legend()
