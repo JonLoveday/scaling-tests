@@ -179,7 +179,7 @@ def xi_z_counts_gama_mock(infile='12244.fits', mask_file='mask.ply',
         if randist == 'shuffle':
             rr = rng.choice(r[sel], nran, replace=True)
         if randist == 'poly':
-            rr = util.ran_fun(p, dmin, dmax, nran)
+            rr = st_util.ran_fun(p, dmin, dmax, nran)
         rancat = Cat(rar.astype('float32'), decr.astype('float32'), r=rr)
         rancat.assign_jk(limits, nra, ndec)
         rancat.gen_cart()

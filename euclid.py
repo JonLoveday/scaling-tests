@@ -25,7 +25,7 @@ import pymangle
 
 import calc_kcor
 import limber
-import util
+import st_util
 import wcorr
 
 ln10 = math.log(10)
@@ -34,7 +34,7 @@ rng = default_rng()
 # Flagship2 cosomology, converting to h=1 units
 h = 1
 Om0 = 0.319
-cosmo = util.CosmoLookup(h, Om0)
+cosmo = st_util.CosmoLookup(h, Om0)
 
 north_limits = [157.25, 225.0, -3.95, 3.95]
 q1_south_limits = [55, 67.2, -51.6, -45.2]

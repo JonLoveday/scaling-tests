@@ -25,7 +25,7 @@ import treecorr
 
 import calc_kcor
 import cluster_z
-import util
+import st_util
 import wcorr
 
 ncores = min(32, psutil.cpu_count(logical=False))
@@ -37,7 +37,7 @@ rng = default_rng()
 # Flagship2 cosomology, converting to h=1 units
 # h = 1
 # Om0 = 0.319
-# cosmo = util.CosmoLookup(h, Om0)
+# cosmo = st_util.CosmoLookup(h, Om0)
 
 solid_angle_north = 1
 def BGS_N_wcounts():
@@ -846,7 +846,7 @@ def Nz(infile='WAVES-N_0p2_Z22_GalsAmbig_CompletePhotoZ.fits',
         plt.stairs(counts, edges, color=color, label=f"m = {mlo}, {mhi}]")
         # plt.plot(zp, spline(zp), color=color, ls='-')
         plt.plot(zp, be_fit(zp, *popt), color=color, ls='-')
-        selfn = util.SelectionFunction(
+        selfn = st_util.SelectionFunction(
             cosmo, lf_pars=lf_pars, 
             mlo=mlo, mhi=mhi, solid_angle=solid_angle,
             dz=zbins[1]-zbins[0], interp=interp)
