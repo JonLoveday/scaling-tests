@@ -1,8 +1,8 @@
 # Clustering measurements for WAVES target catalogues using treecorr
 
-# import glob
+import glob
 import math
-# import multiprocessing as mp
+import multiprocessing as mp
 import numpy as np
 from numpy.polynomial import Polynomial
 from numpy.random import default_rng
@@ -10,18 +10,19 @@ from pathlib import Path
 import pickle
 import matplotlib.pyplot as plt
 import scipy.optimize
-# import subprocess
-# from astropy import constants as const
+import subprocess
+from astropy import constants as const
 from astropy.coordinates import SkyCoord
 from astropy.table import Table, join
 from astropy.wcs import WCS
 from astropy.io import fits
-# from astropy import units as u
+from astropy import units as u
 import treecorr
-# import pdb
+import pdb
+from pycorr import TwoPointCorrelationFunction
 import pymangle
 
-# import calc_kcor
+import calc_kcor
 import limber
 import st_util
 import wcorr
@@ -647,43 +648,50 @@ def xir_mag_plot(nm=6, fit_range=[0.1, 20], p0=[5, 1.7],
 
 
 def shark_xi_rp_pi(infile='waves_wide_gals.parquet', mask_file='../../v1p2/mask_N.ply',
-              region='N', limits=north_limits, ranfac=1, npatch=9, rmin=0.1, rmax=100, nbins=16):
-    """xi(rp, pi) calculated with treecorr."""
+              region='N', limits=north_limits, ranfac=1, npatch=9,
+              edges = (np.linspace(0, 50, 51), np.linspace(-50, 50, 101))):
+    """xi(rp, pi) calculated with pycorr."""
 
-    # Create out_dir if it doesn't already exist
-    out_dir = f'xi_rp_pi_{region}'
-    Path(out_dir).mkdir(parents=True, exist_ok=True)
+    outfile = f'xi_rp_pi_{region}.pkl'
 
     t = Table.read(infile)
     if region == 'N':
         sel = t['dec'] > -10
     if region == 'S':
         sel = t['dec'] < -10
+    sel *= t['total_ap_dust_Z_VISTA'] < 20
     print(len(t[sel]), 'out of', len(t), 'galaxies selected')
     t = t[sel]
     ra, dec, redshift = t['ra'], t['dec'], t['zobs']
     r = cosmo.dc(redshift)
-    mask = pymangle.Mangle(mask_file)
+    galpos = np.vstack((ra, dec, r))
 
+    mask = pymangle.Mangle(mask_file)
     ngal = len(ra)
     nran = int(ranfac*ngal)
     rar, decr = mask.genrand_range(nran, *limits)
     rr = rng.choice(r, nran, replace=True)
-    wcorr.xi_rp_pi(ra, dec, r, rar, decr, rr, npatch=9,
-                rp_min=0.01, rp_max=10, rp_bins=20, pi_bins=np.linspace(0, 40, 3),
-                out_dir=out_dir)
+    ranpos = np.vstack((rar, decr, rr))
+    result = TwoPointCorrelationFunction('rppi', edges, data_positions1=galpos,
+                                     randoms_positions1=ranpos, position_type='rdd',
+                                     engine='corrfunc', nthreads=4)
+    pickle.dump(result, open(outfile, 'wb'))
 
 
-def xi_rp_pi_plot(infiles=['xi_rp_pi_neg0.fits', 'xi_rp_pi_pos0.fits',
-                           'xi_rp_pi_neg1.fits', 'xi_rp_pi_pos1.fits']):
+def xi_rp_pi_plot(infile='xi_rp_pi_N.pkl', cmap=None, aspect='auto', prange=[-2, 2]):
+    result = pickle.load(open(infile, 'rb'))
+    extent = (-result.edges[0][-1], result.edges[0][-1], -result.edges[1][-1], result.edges[1][-1])
+    logxi = np.log10(result.corr).T
+    npi, nrp = logxi.shape[0], logxi.shape[1]
+    map = np.zeros((npi, 2*nrp))
+    map[:, nrp:] = logxi
+    map[:, :nrp] = np.fliplr(logxi)
+
     plt.clf()
     ax = plt.subplot(111)
-    for infile in infiles:
-        corr = wcorr.Corr1d(infile)
-        ax.errorbar(corr.sep, corr.est_corr(),
-                    corr.err, fmt='o',
-                    label=infile)
-
-    ax.set_ylabel(r'$\xi(r_p)$')
-    ax.set_xlabel(r'$r_p$ [Mpc/h]')
+    im = ax.imshow(map, cmap, aspect=aspect, interpolation='none',
+                   vmin=prange[0], vmax=prange[1],
+                   extent=extent)
+    ax.set_xlabel(r'$r_\perp\ [h^{-1} {{\rm Mpc}}]$')
+    ax.set_ylabel(r'$r_\parallel\ [h^{-1} {{\rm Mpc}}]$')
     plt.show()

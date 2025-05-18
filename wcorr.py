@@ -1438,3 +1438,23 @@ def xi_rp_pi(gal_ra, gal_dec, gal_r, ran_ra, ran_dec, ran_r, npatch=9,
                 hdr['Nran'] = rancat.nobj
                 hdul.append(fits.PrimaryHDU(xi_jack))
                 hdul.flush()
+
+
+def xi_rp_pi_plot(infile='xi_rp_pi_N.pkl', cmap=None, aspect='auto', prange=[-2, 2]):
+    result = pickle.load(open(infile, 'rb'))
+    extent = (-result.edges[0][-1], result.edges[0][-1], -result.edges[1][-1], result.edges[1][-1])
+    logxi = np.log10(result.corr).T
+    npi, nrp = logxi.shape[0], logxi.shape[1]
+    map = np.zeros((npi, 2*nrp))
+    map[:, nrp:] = logxi
+    map[:, :nrp] = np.fliplr(logxi)
+
+    plt.clf()
+    ax = plt.subplot(111)
+    im = ax.imshow(map, cmap, aspect=aspect, interpolation='none',
+                   vmin=prange[0], vmax=prange[1],
+                   extent=extent)
+    ax.set_xlabel(r'$r_\perp\ [h^{-1} {{\rm Mpc}}]$')
+    ax.set_ylabel(r'$r_\parallel\ [h^{-1} {{\rm Mpc}}]$')
+    plt.show()
+

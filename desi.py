@@ -20,6 +20,7 @@ from astropy import units as u
 import Corrfunc
 import pdb
 import psutil
+from pycorr import TwoPointCorrelationFunction
 import pymangle
 import treecorr
 
@@ -1034,3 +1035,27 @@ def w_p_test(outfile='xi.pkl'):
     plt.xlabel('r_p [Mpc]')
     plt.ylabel('w_p(r_p)')
     plt.show()
+
+
+def xi_rp_pi(infile='BGS_ANY_SGC_clustering.dat.fits', ranfile='BGS_ANY_SGC_0_clustering.ran.fits',
+            outfile='BGS_ANY_SGC_xi_rp_pi.pkl',
+            edges = (np.linspace(0, 50, 51), np.linspace(-50, 50, 101))):
+    """xi(rp, pi) calculated with pycorr."""
+
+    t = Table.read(infile)
+    print(len(t), 'galaxies selected')
+    ra, dec, redshift = t['RA'], t['DEC'], t['Z']
+    r = cosmo.comoving_distance(redshift)
+    galpos = np.vstack((ra, dec, r))
+
+    t = Table.read(ranfile)
+    print(len(t), 'randoms selected')
+    ra, dec, redshift = t['RA'], t['DEC'], t['Z']
+    r = cosmo.comoving_distance(redshift)
+    ranpos = np.vstack((ra, dec, r))
+
+    result = TwoPointCorrelationFunction('rppi', edges, data_positions1=galpos,
+                                     randoms_positions1=ranpos, position_type='rdd',
+                                     engine='corrfunc', nthreads=4)
+    pickle.dump(result, open(outfile, 'wb'))
+
