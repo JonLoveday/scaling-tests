@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Create polygon mask for EDFS - field is a 0.5 deg radius circle centred on (53.1, -28.1)
+# Create polygon mask for Rubin DP1 ECDFS field - a 0.3 deg radius circle centred on (53.13, -28.10)
 # See https://space.mit.edu/~molly/mangle/manual/weight.html
 cat > boundary.txt <<eod
 circle 0 1
 unit d
-53.1 -28.1 0.5
+53.13 -28.10 0.3
 eod
 cat > zero <<eod
 0

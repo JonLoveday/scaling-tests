@@ -10,13 +10,13 @@ import wcorr
 
 DATA = os.environ['DATA']
 
-def check_mask(datafile=DATA+'/LSST/ComCam/edfs.fits', maskfile=DATA+'/gaia/edfs.ply'):
+def check_mask(datafile=DATA+'/LSST/DP1/ecdfs.fits', maskfile=DATA+'/gaia/ecdfs/holes.txt'):
     '''Plot results of LSST query and GAIA bright star mask.'''
     t = Table.read(datafile)
     mask = np.loadtxt(maskfile, skiprows=2)
     # pdb.pm()
     ax = plt.subplot(111)
-    plt.scatter(t['ra'], t['dec'], s=0.1)
+    plt.scatter(t['coord_ra'], t['coord_dec'], s=0.1)
     for i in range(mask.shape[0]):
         circle = plt.Circle((mask[i, 0], mask[i, 1]), mask[i, 2], color='r', fill=False)
         ax.add_patch(circle)
