@@ -202,7 +202,7 @@ class Corr1d(object):
             self.ic = (self.r1r2 * xi_mod).sum() / (self.r1r2).sum()
 
     def ic_calc(self, fit_range, p0=[0.05, 1.7], ic_rmax=10, niter=3):
-        """Returns estimated integral constraint for power law xi(r)
+        """Returns estimated integral constraint for power law w(theta)
         truncated at ic_rmax."""
 
         def power_law(theta, A, gamma):
@@ -506,6 +506,7 @@ def wcorr_sub(galaxies, randoms, tmin=0.01, tmax=10, nbins=20, npatch=9, patch_p
             ra=galaxies.subset(sub=isub).ra, dec=galaxies.subset(sub=isub).dec, 
             ra_units='deg', dec_units='deg',
             patch_centers=rancat.patch_centers)
+        print(isub, galcat.nobj)
         dd = treecorr.NNCorrelation(
             min_sep=tmin, max_sep=tmax, nbins=nbins,
             sep_units='degrees', var_method='jackknife')
@@ -893,7 +894,7 @@ def w_plot_mag(nmag=6, fit_range=[0.001, 1], p0=[0.05, 1.7]):
             popt, pcov = corr.fit_w(fit_range, p0, ax, color)
             print(popt, pcov)
     plt.loglog()
-    plt.legend()
+    # plt.legend()
     plt.xlabel(r'$\theta$ / degrees')
     plt.ylabel(r'$w(\theta)$')
     plt.show()
@@ -908,6 +909,7 @@ def w_plot_sub(nsub=5, fit_range=[0.001, 1], p0=[0.05, 1.7]):
     for isub in range(nsub):
         infile = f'w_{isub}.fits'
         corr = Corr1d(infile)
+        corr.ic_calc((0.001, 1), niter=5)
         corr.plot(ax, label=corr.meta['LABEL'])
         clr = plt.gca().lines[-1].get_color()  # save colour for fit and prediction
 
@@ -918,6 +920,7 @@ def w_plot_sub(nsub=5, fit_range=[0.001, 1], p0=[0.05, 1.7]):
     plt.legend()
     plt.xlabel(r'$\theta$ / degrees')
     plt.ylabel(r'$w(\theta)$')
+    plt.savefig('w_sub.png')
     plt.show()
 
 

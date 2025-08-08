@@ -16,3 +16,4 @@ weight -zzero holes.ply holes.ply
 snap boundary.ply holes.ply mask.ply
 balkanize mask.ply mask.ply
 unify mask.ply mask.ply
+ransack -r1000000 mask.ply ran.dat

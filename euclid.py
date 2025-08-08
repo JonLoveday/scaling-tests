@@ -36,12 +36,8 @@ h = 1
 Om0 = 0.319
 cosmo = st_util.CosmoLookup(h, Om0)
 
-north_limits = [157.25, 225.0, -3.95, 3.95]
 q1_south_limits = [55, 67.2, -51.6, -45.2]
 q1_north_limits = [262, 277, 63, 69]
-
-solid_angle_north = ((north_limits[1]-north_limits[0]) *
-                     (north_limits[3]-north_limits[2]) * (math.pi/180)**2)
 
 def mask_gal_randoms(gal_coords, maskfile, limits=None, ranfac=1):
     """Apply mask to galaxies and generate randoms."""
@@ -90,7 +86,7 @@ def w_mag(cat='/Users/loveday/Data/euclid/q1/1734103664898TIDR-result.fits',
           maskfile='/Users/loveday/Data/euclid/q1/merged_VMPZ-ID/VMPZ-ID_EDFS_HPCOVERAGE_NIR_J.fits',
           out_dir='/Users/loveday/Data/euclid/q1/wcorr',
           spurious_limit=0.1, point_prob_limit=0.1, ranfac=1, limits=q1_south_limits,
-          magbins=[14, 16, 18, 20, 22, 24]):
+          min_weight=0, magbins=np.linspace(17, 24, 8)):
     """Angular clustering in mag bins."""
 
     # Read mask
@@ -100,12 +96,12 @@ def w_mag(cat='/Users/loveday/Data/euclid/q1/1734103664898TIDR-result.fits',
     mask = Table.read(maskfile)
     hp = HEALPix(nside=nside, order=order, frame='icrs')
     print('pixel resolution', hp.pixel_resolution, 'pixel area', hp.pixel_area)
-    sel = mask['WEIGHT'] > 0
+    sel = mask['WEIGHT'] > min_weight
     mask = mask[sel]
     npix = len(mask)
     usepix = mask['PIXEL']
 
-    # Select galaxies lying mask pixels with non-zero weight
+    # Select galaxies lying in mask pixels with non-zero weight
     t = Table.read(cat)
     print(len(t), 'objects in', cat)
     sel = ((limits[0] <= t['RIGHT_ASCENSION']) * (limits[1] > t['RIGHT_ASCENSION']) *
@@ -149,7 +145,7 @@ def w_mag(cat='/Users/loveday/Data/euclid/q1/1734103664898TIDR-result.fits',
 
 
 def wcounts(gal_coords, ran_coords, out_dir,
-            npatch=9, tmin=0.01, tmax=1, nbins=20,
+            npatch=9, tmin=0.001, tmax=5, nbins=20,
             subsets=None, plot=0):
     """Angular pair counts (in subsets if specified)."""
 
@@ -199,6 +195,9 @@ def wcounts(gal_coords, ran_coords, out_dir,
     outfile = f'{out_dir}/w.fits'
     dd.write(outfile, rr=rr, dr=dr)
     with fits.open(outfile, mode='update') as hdul:
+        hdr = hdul[1].header
+        hdr['Ngal'] = gcat.nobj
+        hdr['Nran'] = rcat.nobj
         hdul.append(fits.PrimaryHDU(xi_jack))
         hdul.flush()
 
@@ -222,21 +221,25 @@ def wcounts(gal_coords, ran_coords, out_dir,
             dd.write(outfile, rr=rr, dr=dr)
             with fits.open(outfile, mode='update') as hdul:
                 hdr = hdul[1].header
+                hdr['label'] = label
+                hdr['Ngal'] = gcat.nobj
+                hdr['Nran'] = rcat.nobj
                 hdul.append(fits.PrimaryHDU(xi_jack))
                 hdul.flush()
 
 
-def wplot_mag(magbins=[14, 16, 18, 20, 22, 24], fit_range=[0.001, 1], p0=[0.05, 1.7],
+def wplot_mag(magbins=np.linspace(17, 24, 8), fit_range=[0.001, 1], p0=[0.05, 1.7],
     indir='/Users/loveday/Data/euclid/q1/wcorr/'):
     ax = plt.subplot(111)
     for imag in range(len(magbins)-1):
         mlo, mhi = magbins[imag], magbins[imag+1]
         infile = indir + f'w_m_{mlo}_{mhi}.fits'
         corr = wcorr.Corr1d(infile=infile)
-        color = next(ax._get_lines.prop_cycler)['color']
-        corr.plot(ax, color=color, label=f"m = [{mlo}, {mhi}]")
+        corr.plot(ax, label=f"m = [{mlo}, {mhi}]")
+        clr = plt.gca().lines[-1].get_color()  # save colour for fit
+
         if fit_range:
-            popt, pcov = corr.fit_w(fit_range, p0, ax, color)
+            popt, pcov = corr.fit_w(fit_range, p0, ax, clr)
             print(popt, pcov)
 
     plt.loglog()
