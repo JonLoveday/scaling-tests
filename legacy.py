@@ -13,7 +13,7 @@ import scipy.optimize
 import subprocess
 from astropy import constants as const
 from astropy.coordinates import SkyCoord
-from astropy.table import Table
+from astropy.table import Table, vstack
 from astropy.wcs import WCS
 from astropy.io import fits
 from astropy import units as u
@@ -139,6 +139,127 @@ def select(maglim=22,
         t[glat > 0].write(ranout.format('ngc', iran), overwrite=True)
         t[glat < 0].write(ranout.format('sgc', iran), overwrite=True)
         print(iran, nsel, 'out of', ntot, 'randoms selected')
+
+
+def get_ELG_target_sel(cat, cut_g=24.1):
+    '''Aurelien's code to select LOP ELGs from Legacy survey.'''
+    # 1) Clean the Sample
+
+    # 1.1) Number of observation in each band isgreater than 0
+    nobs_g = cat[1].read('NOBS_G')
+    nobs_r = cat[1].read('NOBS_R')
+    nobs_z = cat[1].read('NOBS_Z')
+    ELG_clean = (nobs_g > 0) & (nobs_r > 0) & (nobs_z > 0)
+
+    # 1.2) Positive SNR in the grz-bands
+    flux_g = cat[1].read('FLUX_G')
+    flux_ivar_g = cat[1].read('FLUX_IVAR_G')
+    flux_r = cat[1].read('FLUX_R')
+    flux_ivar_r = cat[1].read('FLUX_IVAR_R')
+    flux_z = cat[1].read('FLUX_Z')
+    flux_ivar_z = cat[1].read('FLUX_IVAR_Z')
+    ELG_clean &= (flux_g*np.sqrt(flux_ivar_g) > 0) & (flux_r*np.sqrt(flux_ivar_r) > 0) & (flux_z*np.sqrt(flux_ivar_z) > 0)
+
+    # 1.3) Not close to bright star/galaxy
+    MB = cat[1].read('MASKBITS')
+    ELG_clean &= ~(MB & 2**1 > 0)
+    ELG_clean &= ~(MB & 2**12 > 0)
+    ELG_clean &= ~(MB & 2**13 > 0)
+
+    # 2) ELG Selection
+
+    # 2.1) Magnitude Cut
+    flux_g_fib = cat[1].read('FIBERFLUX_G')
+    MW_g = cat[1].read('MW_TRANSMISSION_G')
+    mag_g = 22.5 - 2.5*np.log10(flux_g/MW_g)
+    mag_g_fiber = 22.5 - 2.5*np.log10(flux_g_fib/MW_g)
+    ELG_sel = (mag_g > 20) & (mag_g_fiber < cut_g)
+
+    # 2.2) r-z cut
+    MW_r = cat[1].read('MW_TRANSMISSION_R')
+    mag_r = 22.5 - 2.5*np.log10(flux_r/MW_r)
+    MW_z = cat[1].read('MW_TRANSMISSION_Z')
+    mag_z = 22.5 - 2.5*np.log10(flux_z/MW_z)
+    ELG_sel &= (0.15 < mag_r - mag_z)
+
+    # 2.3) Star/low-z cut
+    ELG_sel &= ((mag_g - mag_r) < 0.5*(mag_r - mag_z) + 0.1)
+
+    # 2.4) Redshift/[OII] cut
+    ELG_sel &= ((mag_g - mag_r) < -1.2*(mag_r - mag_z) + 1.3)
+
+    # 3) Merge masks
+    ELG_tot = ELG_clean & ELG_sel
+
+    return ELG_tot    
+
+
+def get_ELG_loz_sel(cat, cut_g=24.1):
+    '''Aurelien's code modified by Jon to slect z <~1 ELGs for HRS observation.'''
+    # 1) Clean the Sample
+
+    # 1.1) Number of observation in each band isgreater than 0
+    nobs_g = cat['NOBS_G']
+    nobs_r = cat['NOBS_R']
+    nobs_z = cat['NOBS_Z']
+    ELG_clean = (nobs_g > 0) & (nobs_r > 0) & (nobs_z > 0)
+
+    # 1.2) Positive SNR in the grz-bands
+    flux_g = cat['FLUX_G']
+    flux_ivar_g = cat['FLUX_IVAR_G']
+    flux_r = cat['FLUX_R']
+    flux_ivar_r = cat['FLUX_IVAR_R']
+    flux_z = cat['FLUX_Z']
+    flux_ivar_z = cat['FLUX_IVAR_Z']
+    ELG_clean &= (flux_g*np.sqrt(flux_ivar_g) > 0) & (flux_r*np.sqrt(flux_ivar_r) > 0) & (flux_z*np.sqrt(flux_ivar_z) > 0)
+
+    # 1.3) Not close to bright star/galaxy
+    MB = cat['MASKBITS']
+    ELG_clean &= ~(MB & 2**1 > 0)
+    ELG_clean &= ~(MB & 2**12 > 0)
+    ELG_clean &= ~(MB & 2**13 > 0)
+
+    # 2) ELG Selection
+
+    # 2.1) Magnitude Cut NB bright cut changed to 10
+    flux_g_fib = cat['FIBERFLUX_G']
+    MW_g = cat['MW_TRANSMISSION_G']
+    mag_g = 22.5 - 2.5*np.log10(flux_g/MW_g)
+    mag_g_fiber = 22.5 - 2.5*np.log10(flux_g_fib/MW_g)
+    ELG_sel = (mag_g > 10) & (mag_g_fiber < cut_g)
+
+    # 2.2) Colour cuts to select star-forming galaxies below z~1
+    MW_r = cat['MW_TRANSMISSION_R']
+    mag_r = 22.5 - 2.5*np.log10(flux_r/MW_r)
+    MW_z = cat['MW_TRANSMISSION_Z']
+    mag_z = 22.5 - 2.5*np.log10(flux_z/MW_z)
+    x = mag_r - mag_z
+    y = mag_g - mag_r
+    ELG_sel &= (y > 1-x) & (y < 1.3) & (y < 1.6*x - 0.3) & (y > 2.6*(x-1))
+
+    # 3) Merge masks
+    ELG_tot = ELG_clean & ELG_sel
+
+    return ELG_tot    
+
+
+def elg_select(maglim=24.1,
+           path='/global/cfs/cdirs/cosmo/data/legacysurvey/dr10/south/sweep/10.1/',
+           galout='/pscratch/sd/l/loveday/Legacy/10.1/legacy_ELG_loz.fits'):
+    """Select ELG sample from Legacy data."""
+
+    # Extract lo-z ELG candidates from sweep files
+    sweeps = np.array(glob.glob(path + 'sweep*.fits'))
+    first_pass = True
+    for sweep in sweeps:
+        t = Table.read(sweep)
+        elg_sel = get_ELG_loz_sel(t, cut_g=maglim)
+        if first_pass:
+            tout = Table(t[elg_sel])
+            first_pass = False
+        else:
+            tout = vstack([tout, t[elg_sel]])
+    tout.write(galout, overwrite=True)
 
 
 def wcounts_mag(magbins=np.linspace(16, 22, 7)):
