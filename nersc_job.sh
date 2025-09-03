@@ -12,6 +12,6 @@
 python <<EOF
 import legacy
 #legacy.wcounts_mag()
-legacy.sdss_Legacy_cz_counts()
+legacy.elg_select()
 EOF
 
