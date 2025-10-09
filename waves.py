@@ -241,8 +241,7 @@ def gen_rand(limits, mask_file, pixel_mask, outfile, nran=1000000):
 
 def wcounts_N():
     """Angular pair counts in mag bins."""
-    wcounts(galfile='/research/astrodata/4most/WAVES/target_catalogues/reduced_catalogues/WAVES-N_d1m3p1f1_light_Z22_g
-alaxies_masked.fits',
+    wcounts(galfile='/research/astrodata/4most/WAVES/target_catalogues/reduced_catalogues/WAVES-N_d1m3p1f1_light_Z22_galaxies_masked.fits',
             ranfile='/research/astrodata/4most/WAVES/randoms/WAVES_wide/waves_wide_N_full_mask_randoms_10m.fits', out_dir='wmag_N')
 
     
