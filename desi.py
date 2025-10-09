@@ -20,7 +20,7 @@ from astropy import units as u
 import Corrfunc
 import pdb
 import psutil
-from pycorr import TwoPointCorrelationFunction
+from pycorr import TwoPointCorrelationFunction, KMeansSubsampler
 import pymangle
 import treecorr
 
@@ -1039,7 +1039,8 @@ def w_p_test(outfile='xi.pkl'):
 
 def xi_rp_pi(infile='BGS_ANY_SGC_clustering.dat.fits', ranfile='BGS_ANY_SGC_0_clustering.ran.fits',
             outfile='BGS_ANY_SGC_xi_rp_pi.pkl',
-            edges = (np.linspace(0, 50, 51), np.linspace(-50, 50, 101))):
+            # edges = (np.linspace(0, 50, 51), np.linspace(-50, 50, 101))):
+            edges=(10**np.linspace(-2, 2, 51), np.linspace(-50, 50, 101))):
     """xi(rp, pi) calculated with pycorr."""
 
     t = Table.read(infile)
@@ -1054,8 +1055,36 @@ def xi_rp_pi(infile='BGS_ANY_SGC_clustering.dat.fits', ranfile='BGS_ANY_SGC_0_cl
     r = cosmo.comoving_distance(redshift)
     ranpos = np.vstack((ra, dec, r))
 
-    result = TwoPointCorrelationFunction('rppi', edges, data_positions1=galpos,
-                                     randoms_positions1=ranpos, position_type='rdd',
-                                     engine='corrfunc', nthreads=4)
+    # JK regions based on random cat
+    subsampler = KMeansSubsampler(mode='angular', positions=ranpos, nsamples=25, nside=512, position_type='rdd')
+    labels = subsampler.label(ranpos)
+    subsampler.log_info('Labels from {:d} to {:d}.'.format(labels.min(), labels.max()))
+    fig = plt.figure(figsize=(4, 4))
+    ax = plt.gca()
+    ax.scatter(*ranpos[:2], marker='.', c=labels)
+    ax.set_xlabel(r'R.A. [$\mathrm{deg}$]')
+    ax.set_ylabel(r'Dec. [$\mathrm{deg}$]')
+    plt.show()
+
+    data_samples = subsampler.label(galpos)
+    randoms_samples = subsampler.label(ranpos)
+
+    result = TwoPointCorrelationFunction(
+        'rppi', edges, data_positions1=galpos, randoms_positions1=ranpos,
+        data_samples1=data_samples, randoms_samples1=randoms_samples, 
+        position_type='rdd', engine='corrfunc', nthreads=4)
     pickle.dump(result, open(outfile, 'wb'))
 
+
+def w_p(infile='BGS_ANY_SGC_xi_rp_pi.pkl'):
+    result = pickle.load(open(infile, 'rb'))
+    ax = plt.gca()
+    # sep, wp = result(pimax=None, return_sep=True)
+    sep, wp, cov = result.get_corr(pimax=None, return_sep=True, return_cov=True)
+    std = np.diag(cov)**0.5
+    ax.errorbar(sep, wp, std)
+    ax.set_xlabel(r'$r_{p}$')
+    ax.set_ylabel(r'$w_{p}(r_{p})$')
+    ax.grid(True)
+    ax.loglog()
+    plt.show()

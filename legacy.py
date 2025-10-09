@@ -194,7 +194,7 @@ def get_ELG_target_sel(cat, cut_g=24.1):
     return ELG_tot    
 
 
-def get_ELG_loz_sel(cat, cut_g=24.1):
+def get_ELG_loz_sel(cat, cut_g=24.1, dec_lo=-80, dec_hi=5):
     '''Aurelien's code modified by Jon to slect z <~1 ELGs for HRS observation.'''
     # 1) Clean the Sample
 
@@ -202,7 +202,8 @@ def get_ELG_loz_sel(cat, cut_g=24.1):
     nobs_g = cat['NOBS_G']
     nobs_r = cat['NOBS_R']
     nobs_z = cat['NOBS_Z']
-    ELG_clean = (nobs_g > 0) & (nobs_r > 0) & (nobs_z > 0)
+    dec = cat['DEC']
+    ELG_clean = (nobs_g > 0) & (nobs_r > 0) & (nobs_z > 0) & (dec >= dec_lo) & (dec >= dec_hi)
 
     # 1.2) Positive SNR in the grz-bands
     flux_g = cat['FLUX_G']
@@ -262,6 +263,55 @@ def elg_select(maglim=24.1,
     tout.write(galout, overwrite=True)
 
 
+def elg_reformat(infile='legacy_ELG_loz_sel.fits', outfile='ELG_HRS.fits'):
+    """Reformat ELG HRS sample accorfing 4MOST requirements."""
+
+    t = Table.read(infile)
+    tout = Table(t)
+    tout.meta['FMTDOC'] = 'VIS-MAN-4MOST-47110-1720-0001'
+    tout.meta['FMTVERS'] = 2.0
+    tout['NAME'] = np.zeros(len(tout), dtype='S32')
+    for i in range(len(tout)):
+        tout['NAME'][i] = f'{t['RELEASE'][i]}_{t['BRICKID'][i]}_{t['OBJID'][i]}'
+    tout['EPOCH'] = 2000
+    tout['RESOLUTION'] = 2
+    tout['SUBSURVEY'] = 'ELG_HRS'
+    tout['CADENCE'] = np.zeros(len(tout), dtype=np.int64)
+    tout['TEMPLATE'] = 'ST_TEMPLATE.fits'
+    tout['RULESET'] = 'ST_RULESET_HRS'
+    tout['REDSHIFT_ESTIMATE'] = 0.5
+    tout['REDSHIFT_ERROR'] = 0.05
+    tout['EXTENT_FLAG'] = 2
+    tout['EXTENT_PARAMETER'] = 1.0
+    tout['EXTENT_INDEX'] = 1.0
+    tout['MAG'] = t['mag_g']
+    tout['MAG_ERR'] = 0.01
+    tout['MAG_TYPE'] = 'DECam_g_AB'
+    tout['REDDENING'] = t['EBV']
+    tout['TEMPLATE_REDSHIFT'] = 0.5
+    tout['DATE_EARLIEST'] = 0
+    tout['DATE_LATEST'] = 0
+    tout['CAL_MAG_BLUE'] = t['mag_g_fiber']
+    tout['CAL_MAG_ERR_BLUE'] = 0.05
+    tout['CAL_MAG_ID_BLUE'] = 'DECAM_G_AB_FIB'
+    tout['CAL_MAG_GREEN'] = t['mag_r_fiber']
+    tout['CAL_MAG_ERR_GREEN'] = 0.05
+    tout['CAL_MAG_ID_GREEN'] = 'DECAM_R_AB_FIB'
+    tout['CAL_MAG_RED'] = t['mag_z_fiber']
+    tout['CAL_MAG_ERR_RED'] = 0.05
+    tout['CAL_MAG_ID_RED'] = 'DECAM_I_AB_FIB'
+    tout['CLASSIFICATION'] = 'GAL'
+    tout['COMPLETENESS'] = 1.0
+    tout['PARALLAX'] = 0.0
+
+    tout.write(outfile, overwrite=True)
+
+
+def format_check(infile):
+    '''Check that files satisfies 4FS requirements, 
+    see https://4most.mpe.mpg.de/static/manual/4FS_Tutorials/QFSwi_Tut02_TargetCat.pdf'''
+
+    
 def wcounts_mag(magbins=np.linspace(16, 22, 7)):
     """Legacy auto-pair counts in mag bins using treecorr."""
 

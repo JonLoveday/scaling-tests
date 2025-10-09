@@ -1,4 +1,4 @@
-# Clustering support utilities, using treecorr for pair counts
+# Clustering support utilities, using treecorr for angular, pycorr for spatial
 
 import corner
 import emcee
