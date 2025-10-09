@@ -275,9 +275,15 @@ def wcounts(galfile, ranfile, out_dir,
     # process the randoms
     t = Table.read(ranfile)
     print(len(t), 'randoms read')
-    rcat = treecorr.Catalog(ra=t['RA'], dec=t['DEC'],
-                            ra_units='deg', dec_units='deg',
-                            npatch=npatch)
+    try:
+        rcat = treecorr.Catalog(ra=t['RA'], dec=t['DEC'],
+                                ra_units='deg', dec_units='deg',
+                                npatch=npatch)
+    except:
+          rcat = treecorr.Catalog(ra=t['RAmax'], dec=t['Decmax'],
+                                ra_units='deg', dec_units='deg',
+                                npatch=npatch)
+      
     rr = treecorr.NNCorrelation(min_sep=tmin, max_sep=tmax, nbins=nbins,
                                 sep_units='degrees')
     rr.process(rcat)
